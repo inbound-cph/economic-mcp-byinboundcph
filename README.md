@@ -280,3 +280,7 @@ mode, tool annotations, the audit log and the fail-closed startup.
 - REST docs: https://restdocs.e-conomic.com/
 - Auth: https://www.e-conomic.com/developer/authentication
 - FastMCP auth: https://gofastmcp.com/servers/auth
+
+## License
+
+MIT, see [LICENSE](LICENSE). Copyright (c) 2026 INBOUND CPH A/S.

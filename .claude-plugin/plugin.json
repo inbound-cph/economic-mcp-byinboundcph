@@ -8,5 +8,13 @@
   },
   "homepage": "https://github.com/inbound-cph/economic-mcp-byinboundcph",
   "repository": "https://github.com/inbound-cph/economic-mcp-byinboundcph",
-  "keywords": ["e-conomic", "regnskab", "bogholderi", "fakturering", "mcp", "dansk"]
+  "keywords": [
+    "e-conomic",
+    "regnskab",
+    "bogholderi",
+    "fakturering",
+    "mcp",
+    "dansk"
+  ],
+  "license": "MIT"
 }

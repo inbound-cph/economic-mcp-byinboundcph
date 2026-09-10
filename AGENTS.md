@@ -109,6 +109,7 @@ exactly what to click and wait for them.
    railway init --name economic-mcp
    railway add --service economic-mcp --variables "MCP_READ_ONLY=true" \
      --variables "ECONOMIC_APP_SECRET_TOKEN=demo" --variables "ECONOMIC_AGREEMENT_GRANT_TOKEN=demo"
+   railway volume add --mount-path /data --service economic-mcp   # login state survives deploys
    python scripts/new_key.py <name> --service economic-mcp   # prints the key once + the store command
    # run the printed `railway variable set MCP_AUTH_TOKEN_<NAME> --stdin` command
    railway domain --service economic-mcp
@@ -219,6 +220,7 @@ exactly what to click and wait for them.
 | `MCP_AUTH_TOKEN_<NAME>` | One access key per person (32+ chars); `<NAME>` is the identity in the audit log |
 | `MCP_AUTH_TOKEN` | Access key for automations (identity `service-token`) |
 | `MCP_USER_<NAME>` | `email:hash` for the server's own e-mail + password login (`scripts/new_user.py`) |
+| `MCP_LOGIN_SESSION_DAYS`, `MCP_LOGIN_ACCESS_TOKEN_MINUTES` | E-mail login lifetimes (defaults 30 days sliding, 60 min) |
 | `MCP_PUBLIC_URL` | Public https URL; derived from `RAILWAY_PUBLIC_DOMAIN` on Railway |
 | `MCP_READ_ONLY` | `true` hides all write tools |
 | `MCP_ALLOW_UNAUTHENTICATED` | Local testing only |

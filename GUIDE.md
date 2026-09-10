@@ -129,6 +129,9 @@ railway add --service economic-mcp \
   --variables "ECONOMIC_APP_SECRET_TOKEN=demo" \
   --variables "ECONOMIC_AGREEMENT_GRANT_TOKEN=demo"
 
+# Volume: login-sessioner og krypterede tokens overlever deploys (nødvendig ved personligt login)
+railway volume add --mount-path /data --service economic-mcp
+
 # Din egen adgangsnøgle: scriptet viser nøglen én gang og den kommando, der gemmer den
 python scripts/new_key.py cfo --service economic-mcp      # brug dit eget navn i stedet for cfo
 # ...kør derefter den viste "railway variable set MCP_AUTH_TOKEN_CFO --stdin"-kommando
@@ -184,16 +187,13 @@ manager, ikke e-mail). Skal en person ikke længere have adgang, så slet variab
 `MCP_AUTH_TOKEN_ANNA` i Railway; serveren genstarter selv. Til automatiseringer (scripts,
 n8n og lignende) bruges `MCP_AUTH_TOKEN` uden navn.
 
-### Valgfrit men anbefalet: en volume til login-sessioner
+### Volumen
 
-Med personligt login gemmer serveren krypterede login-sessioner på disk. Uden en
-volume nulstilles de ved hver deploy, og brugerne skal logge ind igen.
-
-```bash
-railway volume add --mount-path /data --service economic-mcp
-```
-
-Serveren opdager selv volumen (via `RAILWAY_VOLUME_MOUNT_PATH`). Ingen variabler skal sættes.
+Volumen fra kommandoerne ovenfor er der, serveren gemmer login-sessioner (krypterede tokens
+ved Google/Microsoft, hashede refresh-tokens ved e-mail-login). Uden den skulle alle logge
+ind igen ved hver deploy, også når en kollega bliver oprettet. Serveren finder selv volumen
+via `RAILWAY_VOLUME_MOUNT_PATH`; ingen variabler skal sættes. Bruger du dashboardet
+(2B): servicen → *Settings → Volumes → Add volume*, mount path `/data`.
 
 ---
 
@@ -291,8 +291,11 @@ kodeordene gemmes kun som hash.
    give et nyt kodeord.
 3. Første gang Anna forbinder (connector i claude.ai, Claude Desktop, `/mcp` i Claude Code
    eller `codex mcp login`), åbner login-siden i browseren. Fem forkerte forsøg låser
-   e-mailen i 15 minutter. Login holder 30 dage pr. klient, hvis serveren har en volume
-   (trin 2); ellers til næste deploy.
+   e-mailen i 15 minutter.
+4. Sessioner: klienten fornyer adgangen i baggrunden, så brugeren ser intet. Et login
+   holder 30 dage og forlænges hver gang det bruges; bruger man serveren mindst én gang
+   om måneden, logger man aldrig ind igen. Justér med `MCP_LOGIN_SESSION_DAYS` (1–365) og
+   `MCP_LOGIN_ACCESS_TOKEN_MINUTES` (5–1440, standard 60). Kræver volumen fra trin 2.
 
 Sikkerhedsmæssigt er det et hak under Google og Microsoft: der er ingen to-faktor, og
 "glemt kodeord" klares af administratoren. Har I Workspace eller Microsoft 365, så brug dem.
@@ -401,7 +404,7 @@ Skriveskills viser altid et forslag først og bogfører aldrig uden et udtrykkel
 - [ ] Hver person har sin egen adgangsnøgle (`MCP_AUTH_TOKEN_<NAVN>`), og nøgler til folk, der er stoppet, er slettet.
 - [ ] `MCP_READ_ONLY=true` indtil skriveflowet er testet.
 - [ ] `.env` er ikke i git (er dækket af `.gitignore`).
-- [ ] Der er en Railway-volume, så login-sessioner ikke nulstilles ved deploy.
+- [ ] Der er en Railway-volume (`/data`), så login-sessioner ikke nulstilles ved deploy.
 - [ ] Du ved hvordan du trækker adgang tilbage: fjern personen fra allowlisten, roter
       client secret hos Google/Microsoft, eller tilbagekald appens adgang i e-conomic.
 - [ ] Du kigger i `railway logs` af og til: hvert kald logges med bruger, værktøj og resultat.

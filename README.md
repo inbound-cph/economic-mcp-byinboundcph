@@ -37,6 +37,7 @@ railway login
 railway init --name economic-mcp
 railway add --service economic-mcp --variables "MCP_READ_ONLY=true" \
   --variables "ECONOMIC_APP_SECRET_TOKEN=demo" --variables "ECONOMIC_AGREEMENT_GRANT_TOKEN=demo"
+railway volume add --mount-path /data --service economic-mcp   # login sessions survive deploys
 python scripts/new_key.py cfo --service economic-mcp   # prints a key once + the command to store it
 railway domain --service economic-mcp
 railway up --detach --service economic-mcp
@@ -90,8 +91,11 @@ only as PBKDF2-SHA256 hashes (600 000 rounds) in the `MCP_USER_*` variables, com
 constant time; five failed attempts per e-mail or IP lock login for 15 minutes; each login
 page belongs to a single short-lived OAuth transaction; authorization codes are single-use
 with PKCE; access tokens live one hour, refresh tokens 30 days with rotation, stored as
-hashes under `FASTMCP_HOME` so logins survive deploys. There is no MFA and no self-service
-password reset: the admin runs `new_user.py` again. Prefer Google/Microsoft when you have them.
+hashes under `FASTMCP_HOME` so logins survive deploys. Clients refresh silently, so a user
+who uses the server at least once every 30 days never logs in again; tune with
+`MCP_LOGIN_SESSION_DAYS` (1–365) and `MCP_LOGIN_ACCESS_TOKEN_MINUTES` (5–1440). There is no
+MFA and no self-service password reset: the admin runs `new_user.py` again. Prefer
+Google/Microsoft when you have them.
 
 Google and Microsoft login use OAuth 2.1 with PKCE through FastMCP's OAuth proxy: MCP
 clients discover the server's OAuth metadata, register dynamically, the user sees a short
@@ -138,6 +142,7 @@ then listens on `127.0.0.1` and logs a warning.
 | `MCP_AUTH_TOKEN_<NAME>` | | One access key per person (32+ chars); `<NAME>` becomes the identity in the audit log |
 | `MCP_AUTH_TOKEN` | | Access key for automations (identity `service-token`) |
 | `MCP_USER_<NAME>` | | `email:pbkdf2_sha256$…` for e-mail + password login (create with `scripts/new_user.py`) |
+| `MCP_LOGIN_SESSION_DAYS` / `MCP_LOGIN_ACCESS_TOKEN_MINUTES` | `30` / `60` | Lifetimes for e-mail login sessions and access tokens |
 | `MCP_PUBLIC_URL` | from `RAILWAY_PUBLIC_DOMAIN` | Public https URL, needed for login |
 | `MCP_READ_ONLY` | `false` | Hide write tools |
 | `MCP_ALLOW_UNAUTHENTICATED` | `false` | Local testing only |
@@ -183,8 +188,9 @@ Two ways; both use `railway.json` (start command `python server.py`, health chec
 - **From a GitHub fork**: New Project → Deploy from GitHub repo → set variables →
   Settings → Networking → Generate Domain. Railway redeploys when the fork changes.
 
-Add a volume so logins survive deploys: `railway volume add --mount-path /data --service economic-mcp`.
-The server detects `RAILWAY_VOLUME_MOUNT_PATH` and stores login state there.
+The volume (`railway volume add --mount-path /data`, part of the quick start) is where login
+state lives; the server detects `RAILWAY_VOLUME_MOUNT_PATH` automatically. Without it every
+deploy logs all users out.
 
 ## Connect an MCP client
 

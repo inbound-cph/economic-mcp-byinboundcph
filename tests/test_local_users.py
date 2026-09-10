@@ -82,6 +82,15 @@ def test_auth_settings_select_users_mode(users):
     assert "e-mail login for 1 user(s): anna@firma.dk" in settings.summary()
     assert "access keys for cfo" in settings.summary()
 
+    assert settings.login_access_token_minutes == 60 and settings.login_session_days == 30
+    tuned = auth.resolve_auth_settings({**env, "MCP_LOGIN_ACCESS_TOKEN_MINUTES": "480", "MCP_LOGIN_SESSION_DAYS": "90"})
+    assert tuned.login_access_token_minutes == 480 and tuned.login_session_days == 90
+    assert "sessions 90 days" in tuned.summary()
+    with pytest.raises(auth.AuthConfigError, match="between 1 and 365"):
+        auth.resolve_auth_settings({**env, "MCP_LOGIN_SESSION_DAYS": "0"})
+    with pytest.raises(auth.AuthConfigError, match="whole number"):
+        auth.resolve_auth_settings({**env, "MCP_LOGIN_ACCESS_TOKEN_MINUTES": "an hour"})
+
     with pytest.raises(auth.AuthConfigError, match="MCP_PUBLIC_URL"):
         auth.resolve_auth_settings({"MCP_USER_ANNA": f"{EMAIL}:{users[EMAIL]}"})
     with pytest.raises(auth.AuthConfigError, match="cannot be combined"):
@@ -192,6 +201,16 @@ def test_login_flow_issues_tokens_and_refreshes(provider):
     # Removing the user invalidates their refresh token.
     without_user = local_users.LocalUsersProvider({"bo@firma.dk": provider._users[EMAIL]}, base_url=PUBLIC_URL, state_dir=provider._state_dir)
     assert run(without_user.load_refresh_token(client, refresh_token)) is None
+
+
+def test_token_lifetimes_are_configurable(tmp_path, users):
+    provider = local_users.LocalUsersProvider(users, base_url=PUBLIC_URL, state_dir=tmp_path, access_token_ttl=120, refresh_token_ttl=3600)
+    from mcp.shared.auth import OAuthClientInformationFull
+    client = OAuthClientInformationFull(client_id="c1", redirect_uris=["http://localhost/cb"])
+    token = provider._issue_tokens(client, EMAIL, [local_users.SCOPE])
+    assert token.expires_in == 120
+    record = next(iter(provider._refresh_tokens.values()))
+    assert record["expires_at"] - __import__("time").time() <= 3600
 
 
 def test_lockout_after_repeated_failures(provider):

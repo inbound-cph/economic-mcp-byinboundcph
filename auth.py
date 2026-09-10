@@ -230,6 +230,8 @@ class AuthSettings:
     allowlist: Allowlist = field(default_factory=Allowlist)
     access_keys: dict[str, str] = field(default_factory=dict)  # name -> key
     users: dict[str, str] = field(default_factory=dict)  # email -> password hash
+    login_access_token_minutes: int = 60
+    login_session_days: int = 30
     jwt_signing_key: Optional[str] = None
     allowed_client_redirect_uris: Optional[tuple[str, ...]] = None
     google_client_id: Optional[str] = None
@@ -257,7 +259,10 @@ class AuthSettings:
         if self.mode == "token":
             return keys
         if self.mode == "users":
-            text = f"e-mail login for {len(self.users)} user(s): " + ", ".join(sorted(self.users))
+            text = (
+                f"e-mail login for {len(self.users)} user(s): " + ", ".join(sorted(self.users))
+                + f" (sessions {self.login_session_days} days, access tokens {self.login_access_token_minutes} min)"
+            )
             if keys:
                 text += f", plus {keys}"
             return text
@@ -350,6 +355,8 @@ def resolve_auth_settings(env: Mapping[str, str]) -> AuthSettings:
         )
 
     if users:
+        access_minutes = _read_int(env, "MCP_LOGIN_ACCESS_TOKEN_MINUTES", default=60, minimum=5, maximum=24 * 60)
+        session_days = _read_int(env, "MCP_LOGIN_SESSION_DAYS", default=30, minimum=1, maximum=365)
         if not public_url:
             raise AuthConfigError(
                 "E-mail login requires MCP_PUBLIC_URL (the server's public https URL). "
@@ -357,7 +364,13 @@ def resolve_auth_settings(env: Mapping[str, str]) -> AuthSettings:
             )
         if not allowlist.is_empty:
             raise AuthConfigError("MCP_ALLOWED_EMAILS/MCP_ALLOWED_DOMAINS are not used with e-mail login; the MCP_USER_* variables are the list")
-        return AuthSettings(mode="users", users=users, **common)
+        return AuthSettings(
+            mode="users",
+            users=users,
+            login_access_token_minutes=access_minutes,
+            login_session_days=session_days,
+            **common,
+        )
 
     if access_keys:
         return AuthSettings(mode="token", **common)
@@ -372,6 +385,19 @@ def resolve_auth_settings(env: Mapping[str, str]) -> AuthSettings:
 # ---------------------------------------------------------------------------
 # Provider construction
 # ---------------------------------------------------------------------------
+
+
+def _read_int(env: Mapping[str, str], name: str, *, default: int, minimum: int, maximum: int) -> int:
+    raw = (env.get(name) or "").strip()
+    if not raw:
+        return default
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise AuthConfigError(f"{name} must be a whole number") from exc
+    if not minimum <= value <= maximum:
+        raise AuthConfigError(f"{name} must be between {minimum} and {maximum}")
+    return value
 
 
 def _collect_access_keys(env: Mapping[str, str]) -> dict[str, str]:
@@ -425,6 +451,8 @@ def build_auth_provider(settings: AuthSettings) -> Optional[AuthProvider]:
             settings.users,
             base_url=settings.public_url or "",
             state_dir=fastmcp.settings.home / "local-users",
+            access_token_ttl=settings.login_access_token_minutes * 60,
+            refresh_token_ttl=settings.login_session_days * 24 * 60 * 60,
         )
     elif settings.mode == "google":
         provider = GuardedGoogleProvider(

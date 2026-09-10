@@ -215,6 +215,8 @@ class LocalUsersProvider(OAuthProvider):
         base_url: str,
         state_dir: Path,
         server_name: str = "e-conomic MCP",
+        access_token_ttl: int = ACCESS_TOKEN_TTL,
+        refresh_token_ttl: int = REFRESH_TOKEN_TTL,
     ) -> None:
         if not users:
             raise UserConfigError("At least one MCP_USER_<NAME> is required for e-mail login")
@@ -228,6 +230,8 @@ class LocalUsersProvider(OAuthProvider):
         )
         self._users = {email.lower(): stored for email, stored in users.items()}
         self._server_name = server_name
+        self._access_token_ttl = int(access_token_ttl)
+        self._refresh_token_ttl = int(refresh_token_ttl)
         self._state_dir = Path(state_dir)
         self._state_file = self._state_dir / "local-users-state.json"
         self.throttle = LoginThrottle()
@@ -400,20 +404,20 @@ class LocalUsersProvider(OAuthProvider):
             token=access,
             client_id=client.client_id,
             scopes=scopes,
-            expires_at=now + ACCESS_TOKEN_TTL,
+            expires_at=now + self._access_token_ttl,
             claims={"email": email, "sub": email},
         )
         self._refresh_tokens[_token_hash(refresh)] = {
             "client_id": client.client_id,
             "email": email,
             "scopes": scopes,
-            "expires_at": now + REFRESH_TOKEN_TTL,
+            "expires_at": now + self._refresh_token_ttl,
         }
         self._save_state()
         return OAuthToken(
             access_token=access,
             token_type="Bearer",
-            expires_in=ACCESS_TOKEN_TTL,
+            expires_in=self._access_token_ttl,
             refresh_token=refresh,
             scope=" ".join(scopes),
         )

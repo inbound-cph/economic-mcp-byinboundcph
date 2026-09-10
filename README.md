@@ -1,4 +1,4 @@
-# e-conomic MCP Server
+# e-conomic MCP Server by InboundCPH
 
 A [FastMCP](https://gofastmcp.com) server that exposes the [Visma e-conomic](https://www.e-conomic.dk/)
 REST API as 73 MCP tools over Streamable HTTP, protected by **personal login (Google or

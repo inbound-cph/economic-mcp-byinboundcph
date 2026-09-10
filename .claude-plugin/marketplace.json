@@ -1,0 +1,17 @@
+{
+  "name": "economic-mcp",
+  "owner": {
+    "name": "InboundCPH",
+    "url": "https://github.com/inbound-cph"
+  },
+  "description": "Skills til Visma e-conomic, bygget til e-conomic MCP-serveren i samme repo.",
+  "plugins": [
+    {
+      "name": "economic",
+      "source": "./",
+      "description": "Danske arbejdsgange til e-conomic: debitoropfølgning, månedsrapport, kundeoverblik, kontoudtog, fakturakladde, finansbilag og datasvar. Kræver at e-conomic MCP-serveren er tilføjet som MCP-server.",
+      "category": "productivity",
+      "keywords": ["e-conomic", "regnskab", "bogholderi", "fakturering", "dansk"]
+    }
+  ]
+}

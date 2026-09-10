@@ -5,6 +5,8 @@ REST API as 73 MCP tools over Streamable HTTP, protected by **personal login (Go
 Microsoft)** and/or an **access key**, with an **allowlist**, **read-only mode** and an
 **audit log**. Runs on Railway in minutes.
 
+Built by Ian Rosenfeldt, founder of [INBOUND CPH A/S](https://inboundcph.dk).
+
 **Dansk guide:** [GUIDE.md](GUIDE.md) tager dig trin for trin gennem e-conomic-tokens,
 Railway, login og klienter. **AI agents:** [AGENTS.md](AGENTS.md) tells Claude Code /
 Codex how to set the server up for you.

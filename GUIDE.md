@@ -1,7 +1,7 @@
 # Kom godt i gang: din egen e-conomic MCP-server
 
-> **Tillykke! Du har hentet InboundCPH's e-conomic MCP-server.** Det er et offentligt
-> open source-projekt under MIT-licens. Brug det frit, og er du udvikler, er du velkommen
+> **Tillykke! Du har hentet InboundCPH's e-conomic MCP-server.** Den er udviklet af
+> Ian Rosenfeldt, founder af INBOUND CPH A/S, og er et offentligt projekt under MIT-licens. Brug det frit, og er du udvikler, er du velkommen
 > til at forbedre løsningen og sende en pull request. Opsætningen tager typisk 30–60
 > minutter. Noget kan din AI-assistent klare for dig, og noget skal du selv gøre i
 > browseren, fordi det kræver dine egne logins:

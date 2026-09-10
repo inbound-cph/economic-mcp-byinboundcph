@@ -20,7 +20,7 @@ running anything. Danish version:
 
 > **Tillykke! Du har hentet InboundCPH's e-conomic MCP-server.**
 >
-> Med den kan Claude, Codex og andre AI-assistenter arbejde direkte i dit
+> Den er udviklet af Ian Rosenfeldt, founder af INBOUND CPH A/S. Med den kan Claude, Codex og andre AI-assistenter arbejde direkte i dit
 > e-conomic-regnskab: slå kunder op, finde forfaldne fakturaer, lave rapporter og, når
 > du selv slår det til, oprette fakturaer og bilag.
 >
@@ -45,7 +45,7 @@ running anything. Danish version:
 English version, same content:
 
 > **Congratulations! You have downloaded InboundCPH's e-conomic MCP server.**
-> It lets Claude, Codex and other AI assistants work directly in your e-conomic books:
+> It was built by Ian Rosenfeldt, founder of INBOUND CPH A/S. It lets Claude, Codex and other AI assistants work directly in your e-conomic books:
 > look up customers, find overdue invoices, build reports and, once you enable it,
 > create invoices and vouchers. It is a public open source project (MIT); developers are
 > welcome to improve it and open a pull request. I will now guide you through the setup

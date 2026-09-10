@@ -3,7 +3,7 @@
   "description": "Danske arbejdsgange til Visma e-conomic via e-conomic MCP-serveren: debitoropfølgning, månedsrapport, kundeoverblik, kontoudtog og afstemning, fakturakladde, finansbilag og præcise datasvar.",
   "version": "1.0.0",
   "author": {
-    "name": "InboundCPH",
+    "name": "Ian Rosenfeldt, INBOUND CPH A/S",
     "url": "https://github.com/inbound-cph"
   },
   "homepage": "https://github.com/inbound-cph/economic-mcp-byinboundcph",

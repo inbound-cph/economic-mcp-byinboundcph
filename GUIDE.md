@@ -130,7 +130,8 @@ railway add --service economic-mcp \
   --variables "ECONOMIC_AGREEMENT_GRANT_TOKEN=demo"
 
 # Volume: login-sessioner og krypterede tokens overlever deploys (nødvendig ved personligt login)
-railway volume add --mount-path /data --service economic-mcp
+railway service economic-mcp               # linker servicen til mappen (volume-kommandoen kræver det)
+railway volume add --mount-path /data
 
 # Din egen adgangsnøgle: scriptet viser nøglen én gang og den kommando, der gemmer den
 python scripts/new_key.py cfo --service economic-mcp      # brug dit eget navn i stedet for cfo

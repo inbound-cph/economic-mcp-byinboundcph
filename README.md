@@ -37,7 +37,7 @@ railway login
 railway init --name economic-mcp
 railway add --service economic-mcp --variables "MCP_READ_ONLY=true" \
   --variables "ECONOMIC_APP_SECRET_TOKEN=demo" --variables "ECONOMIC_AGREEMENT_GRANT_TOKEN=demo"
-railway volume add --mount-path /data --service economic-mcp   # login sessions survive deploys
+railway service economic-mcp && railway volume add --mount-path /data   # login state survives deploys
 python scripts/new_key.py cfo --service economic-mcp   # prints a key once + the command to store it
 railway domain --service economic-mcp
 railway up --detach --service economic-mcp
@@ -188,7 +188,7 @@ Two ways; both use `railway.json` (start command `python server.py`, health chec
 - **From a GitHub fork**: New Project → Deploy from GitHub repo → set variables →
   Settings → Networking → Generate Domain. Railway redeploys when the fork changes.
 
-The volume (`railway volume add --mount-path /data`, part of the quick start) is where login
+The volume (`railway service <name>` then `railway volume add --mount-path /data`, part of the quick start) is where login
 state lives; the server detects `RAILWAY_VOLUME_MOUNT_PATH` automatically. Without it every
 deploy logs all users out.
 

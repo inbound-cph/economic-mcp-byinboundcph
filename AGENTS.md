@@ -109,7 +109,8 @@ exactly what to click and wait for them.
    railway init --name economic-mcp
    railway add --service economic-mcp --variables "MCP_READ_ONLY=true" \
      --variables "ECONOMIC_APP_SECRET_TOKEN=demo" --variables "ECONOMIC_AGREEMENT_GRANT_TOKEN=demo"
-   railway volume add --mount-path /data --service economic-mcp   # login state survives deploys
+   railway service economic-mcp                                  # link the service (volume add needs it)
+   railway volume add --mount-path /data                         # login state survives deploys
    python scripts/new_key.py <name> --service economic-mcp   # prints the key once + the store command
    # run the printed `railway variable set MCP_AUTH_TOKEN_<NAME> --stdin` command
    railway domain --service economic-mcp
@@ -120,6 +121,8 @@ exactly what to click and wait for them.
    from `railway variable list --service economic-mcp --json`. A fresh domain can answer
    404 for a minute; the doctor script retries. Then verify:
    `python scripts/doctor.py --public-url https://<domain>`.
+   `railway volume add` crashes when given `--service`; link the service first with
+   `railway service <name>` and run it without `--service`.
    If the `claude` CLI crashes with a Node.js TypeError, the user's Node is too new for the
    npm-installed CLI; the Claude desktop app is unaffected, and `nvm use 22` or reinstalling
    Claude Code fixes the CLI. Configure the MCP server through the app or `.mcp.json` meanwhile.

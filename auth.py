@@ -453,6 +453,7 @@ def build_auth_provider(settings: AuthSettings) -> Optional[AuthProvider]:
             state_dir=fastmcp.settings.home / "local-users",
             access_token_ttl=settings.login_access_token_minutes * 60,
             refresh_token_ttl=settings.login_session_days * 24 * 60 * 60,
+            allowed_client_redirect_uris=redirect_uris,
         )
     elif settings.mode == "google":
         provider = GuardedGoogleProvider(

@@ -91,7 +91,10 @@ only as PBKDF2-SHA256 hashes (600 000 rounds) in the `MCP_USER_*` variables, com
 constant time; five failed attempts per e-mail or IP lock login for 15 minutes; each login
 page belongs to a single short-lived OAuth transaction; authorization codes are single-use
 with PKCE; access tokens live one hour, refresh tokens 30 days with rotation, stored as
-hashes under `FASTMCP_HOME` so logins survive deploys. Clients refresh silently, so a user
+hashes under `FASTMCP_HOME` so logins survive deploys. Because any MCP client can register
+itself, the login page always shows the address the user will be sent back to, and
+`MCP_ALLOWED_CLIENT_REDIRECT_URIS` (e.g. `http://localhost:*,https://claude.ai/*`) can
+restrict destinations; set it when you know which clients you use. Clients refresh silently, so a user
 who uses the server at least once every 30 days never logs in again; tune with
 `MCP_LOGIN_SESSION_DAYS` (1–365) and `MCP_LOGIN_ACCESS_TOKEN_MINUTES` (5–1440). There is no
 MFA and no self-service password reset: the admin runs `new_user.py` again. Prefer

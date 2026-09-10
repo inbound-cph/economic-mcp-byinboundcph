@@ -21,6 +21,9 @@ What this module owns and how it stays safe:
   MCP SDK. Access tokens live 1 hour in memory. Refresh tokens live 30 days, are rotated on
   use and stored only as SHA-256 hashes on disk (FASTMCP_HOME), so logins survive deploys.
 - The login page sends no cookies, sets a strict Content-Security-Policy and is never cached.
+- Anyone can register an OAuth client (that is how MCP clients work), so the login page
+  always shows where the user will be sent after login, and the operator can restrict
+  redirect destinations with MCP_ALLOWED_CLIENT_REDIRECT_URIS. Unknown destination = do not log in.
 
 The protocol parts (client registration, /authorize, /token, metadata, PKCE checks) come
 from FastMCP and the MCP SDK; this file only decides who the user is.
@@ -58,6 +61,7 @@ from starlette.responses import HTMLResponse, RedirectResponse, Response
 from starlette.routing import Route
 
 from fastmcp.server.auth.auth import AccessToken, ClientRegistrationOptions, OAuthProvider, RevocationOptions
+from fastmcp.server.auth.redirect_validation import validate_redirect_uri
 
 logger = logging.getLogger("economic-mcp.auth.users")
 
@@ -217,6 +221,7 @@ class LocalUsersProvider(OAuthProvider):
         server_name: str = "e-conomic MCP",
         access_token_ttl: int = ACCESS_TOKEN_TTL,
         refresh_token_ttl: int = REFRESH_TOKEN_TTL,
+        allowed_client_redirect_uris: Optional[list[str]] = None,
     ) -> None:
         if not users:
             raise UserConfigError("At least one MCP_USER_<NAME> is required for e-mail login")
@@ -232,6 +237,7 @@ class LocalUsersProvider(OAuthProvider):
         self._server_name = server_name
         self._access_token_ttl = int(access_token_ttl)
         self._refresh_token_ttl = int(refresh_token_ttl)
+        self._allowed_redirects = list(allowed_client_redirect_uris) if allowed_client_redirect_uris is not None else None
         self._state_dir = Path(state_dir)
         self._state_file = self._state_dir / "local-users-state.json"
         self.throttle = LoginThrottle()
@@ -287,6 +293,10 @@ class LocalUsersProvider(OAuthProvider):
     async def register_client(self, client_info: OAuthClientInformationFull) -> None:
         if client_info.client_id is None:
             raise ValueError("client_id is required")
+        for uri in client_info.redirect_uris or []:
+            if not validate_redirect_uri(uri, self._allowed_redirects):
+                logger.warning("Rejected client registration with redirect URI %s", uri)
+                raise ValueError(f"redirect_uri {uri} is not allowed on this server")
         self._clients[client_info.client_id] = client_info
         self._save_state()
 
@@ -295,6 +305,8 @@ class LocalUsersProvider(OAuthProvider):
     async def authorize(self, client: OAuthClientInformationFull, params: AuthorizationParams) -> str:
         if client.client_id is None or client.client_id not in self._clients:
             raise AuthorizeError(error="unauthorized_client", error_description="Unknown client")
+        if not validate_redirect_uri(params.redirect_uri, self._allowed_redirects):
+            raise AuthorizeError(error="invalid_request", error_description="redirect_uri is not allowed on this server")
         self._prune_transactions()
         txn = secrets.token_urlsafe(32)
         self._transactions[txn] = _LoginTransaction(client=client, params=params, created_at=time.time())
@@ -316,7 +328,8 @@ class LocalUsersProvider(OAuthProvider):
         self._prune_transactions()
         if txn not in self._transactions:
             return self._html(_render_page(self._server_name, None, error="expired", txn=None), status=400)
-        return self._html(_render_page(self._server_name, self._transactions[txn].client.client_name, txn=txn))
+        transaction = self._transactions[txn]
+        return self._html(_render_page(self._server_name, transaction.client.client_name, txn=txn, destination=_destination(transaction)))
 
     async def login_submit(self, request: Request) -> Response:
         form = await request.form()
@@ -332,7 +345,7 @@ class LocalUsersProvider(OAuthProvider):
         client_name = transaction.client.client_name
         if self.throttle.is_locked(f"email:{email}", f"ip:{ip}"):
             logger.warning("Login locked out (too many failures) email=%s ip=%s", email, ip)
-            return self._html(_render_page(self._server_name, client_name, error="locked", txn=txn), status=429)
+            return self._html(_render_page(self._server_name, client_name, error="locked", txn=txn, destination=_destination(transaction)), status=429)
 
         stored = self._users.get(email)
         # Verify against a dummy hash when the e-mail is unknown so both paths cost the same.
@@ -344,7 +357,7 @@ class LocalUsersProvider(OAuthProvider):
             if transaction.failures >= MAX_FAILED_ATTEMPTS:
                 self._transactions.pop(txn, None)
                 return self._html(_render_page(self._server_name, None, error="expired", txn=None), status=400)
-            return self._html(_render_page(self._server_name, client_name, error="invalid", txn=txn), status=401)
+            return self._html(_render_page(self._server_name, client_name, error="invalid", txn=txn, destination=_destination(transaction)), status=401)
 
         self.throttle.reset(f"email:{email}")
         self._transactions.pop(txn, None)
@@ -490,10 +503,32 @@ _ERRORS = {
 }
 
 
-def _render_page(server_name: str, client_name: Optional[str], *, txn: Optional[str], error: Optional[str] = None) -> str:
+def _destination(transaction: _LoginTransaction) -> str:
+    uri = transaction.params.redirect_uri
+    host = uri.host or ""
+    if uri.port and uri.port not in (80, 443):
+        host = f"{host}:{uri.port}"
+    return f"{uri.scheme}://{host}"
+
+
+def _render_page(
+    server_name: str,
+    client_name: Optional[str],
+    *,
+    txn: Optional[str],
+    error: Optional[str] = None,
+    destination: Optional[str] = None,
+) -> str:
     title = html.escape(server_name)
-    client = html.escape(client_name or "din app / your app")
+    client = html.escape((client_name or "En app")[:60])
     message = f'<p class="error">{html.escape(_ERRORS[error])}</p>' if error else ""
+    where = (
+        f'<p class="dest">Efter login sendes du tilbage til <b>{html.escape(destination)}</b>. '
+        "Genkender du ikke adressen, så log ikke ind. / After login you are sent back to this address; "
+        "if you do not recognise it, do not sign in.</p>"
+        if destination
+        else ""
+    )
     form = (
         f"""<form method="post" action="/login" autocomplete="on">
       <input type="hidden" name="txn" value="{html.escape(txn)}">
@@ -517,10 +552,12 @@ def _render_page(server_name: str, client_name: Optional[str], *, txn: Optional[
   input {{ width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #ccd; border-radius: 8px; font-size: 15px; }}
   button {{ margin-top: 18px; width: 100%; padding: 11px; border: 0; border-radius: 8px; background: #1a56db; color: #fff; font-size: 15px; cursor: pointer; }}
   .error {{ color: #b42318; background: #fef3f2; padding: 10px; border-radius: 8px; }}
+  .dest {{ background: #f0f4ff; padding: 10px; border-radius: 8px; font-size: 13px; color: #1e3a8a; }}
 </style></head>
 <body><main>
   <h1>{title}</h1>
-  <p>{client} beder om adgang til regnskabet. Log ind med den e-mail og det kodeord, du har fået af jeres administrator.</p>
+  <p>"{client}" beder om adgang til regnskabet (navnet er oplyst af appen selv). Log ind med den e-mail og det kodeord, du har fået af jeres administrator.</p>
+  {where}
   {message}
   {form}
 </main></body></html>"""

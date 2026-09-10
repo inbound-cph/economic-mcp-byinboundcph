@@ -15,8 +15,10 @@ system that holds financial records.
 - **E-mail + password login** (optional, `MCP_USER_*`) is hosted by the server: PBKDF2-SHA256
   hashes with 600 000 rounds and constant-time comparison, lockout after five failures per
   e-mail or IP, single-use short-lived login transactions, PKCE-protected single-use codes,
-  one-hour access tokens, 30-day rotating refresh tokens stored only as hashes. No MFA;
-  prefer Google/Microsoft login when available.
+  one-hour access tokens, 30-day rotating refresh tokens stored only as hashes. The login
+  page shows the redirect destination, and `MCP_ALLOWED_CLIENT_REDIRECT_URIS` can restrict
+  it, because any MCP client may register itself. No MFA; prefer Google/Microsoft login when
+  available.
 - **Access keys are personal.** One `MCP_AUTH_TOKEN_<NAME>` per person (32+ characters),
   compared as bearer tokens; the audit log records the name and deleting the variable
   revokes that person. `MCP_AUTH_TOKEN` without a name serves automations. Keys can coexist

@@ -291,8 +291,11 @@ kodeordene gemmes kun som hash.
 2. Gentag for hver person. Slet variablen for at fjerne en bruger; kør scriptet igen for at
    give et nyt kodeord.
 3. Første gang Anna forbinder (connector i claude.ai, Claude Desktop, `/mcp` i Claude Code
-   eller `codex mcp login`), åbner login-siden i browseren. Fem forkerte forsøg låser
-   e-mailen i 15 minutter.
+   eller `codex mcp login`), åbner login-siden i browseren. Siden viser altid, hvilken
+   adresse brugeren sendes tilbage til (fx `https://claude.ai` eller `http://localhost`);
+   genkender man den ikke, skal man ikke logge ind. Bruger I kun Claude, så sæt
+   `MCP_ALLOWED_CLIENT_REDIRECT_URIS=http://localhost:*,http://127.0.0.1:*,https://claude.ai/*`,
+   så andre destinationer afvises helt. Fem forkerte forsøg låser e-mailen i 15 minutter.
 4. Sessioner: klienten fornyer adgangen i baggrunden, så brugeren ser intet. Et login
    holder 30 dage og forlænges hver gang det bruges; bruger man serveren mindst én gang
    om måneden, logger man aldrig ind igen. Justér med `MCP_LOGIN_SESSION_DAYS` (1–365) og

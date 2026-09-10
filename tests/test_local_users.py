@@ -138,6 +138,7 @@ def test_login_flow_issues_tokens_and_refreshes(provider):
             page = await http.get("/login", params={"txn": txn})
             assert page.status_code == 200
             assert "Kodeord" in page.text and 'name="txn"' in page.text
+            assert "http://localhost:6274" in page.text  # destination is always shown
             assert page.headers["cache-control"] == "no-store"
             assert "frame-ancestors 'none'" in page.headers["content-security-policy"]
 
@@ -239,6 +240,21 @@ def test_expired_or_unknown_transaction_is_rejected(provider):
             return page.status_code, post.status_code
 
     assert run(flow()) == (400, 400)
+
+
+def test_redirect_allowlist_blocks_unknown_destinations(tmp_path, users):
+    provider = local_users.LocalUsersProvider(
+        users, base_url=PUBLIC_URL, state_dir=tmp_path, allowed_client_redirect_uris=["http://localhost:*", "https://claude.ai/*"]
+    )
+
+    async def flow():
+        async with _client(provider) as http:
+            bad = await http.post("/register", json={"redirect_uris": ["https://evil.example/cb"], "client_name": "x", "token_endpoint_auth_method": "none"})
+            good = await http.post("/register", json={"redirect_uris": ["https://claude.ai/api/mcp/auth_callback"], "client_name": "claude", "token_endpoint_auth_method": "none"})
+            return bad.status_code, good.status_code
+
+    bad, good = run(flow())
+    assert bad >= 400 and good == 201
 
 
 def test_metadata_advertises_login_server(provider):

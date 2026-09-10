@@ -24,6 +24,11 @@ real accounting data, so small, well-tested changes are preferred.
   `README.md` (English, reference). Keep both in sync when behaviour changes.
 - Never commit `.env`, tokens or client secrets. `.gitignore` already excludes `.env`.
 
+## License of contributions
+
+By opening a pull request you agree that your contribution is licensed under the same
+terms as the project (PolyForm Shield 1.0.0, see LICENSE) with INBOUND CPH A/S as licensor.
+
 ## Reporting problems
 
 Bugs and ideas: open an issue. Security problems: use GitHub's private vulnerability

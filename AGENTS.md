@@ -24,8 +24,10 @@ running anything. Danish version:
 > e-conomic-regnskab: slå kunder op, finde forfaldne fakturaer, lave rapporter og, når
 > du selv slår det til, oprette fakturaer og bilag.
 >
-> Det er et offentligt open source-projekt (MIT-licens). Er du udvikler, er du velkommen
-> til at forbedre løsningen og sende en pull request på GitHub.
+> Det er et offentligt projekt under PolyForm Shield-licensen: du må frit bruge, ændre og
+> videregive koden, også i din egen virksomhed, men ikke sælge den eller udbyde den som
+> konkurrerende produkt eller service. Er du udvikler, er du velkommen til at forbedre
+> løsningen og sende en pull request på GitHub.
 >
 > Jeg guider dig nu gennem opsætningen. Det tager typisk 30–60 minutter. Noget klarer jeg
 > selv, og noget skal du gøre i browseren, fordi det kræver dine egne logins:
@@ -47,8 +49,10 @@ English version, same content:
 > **Congratulations! You have downloaded InboundCPH's e-conomic MCP server.**
 > It was built by Ian Rosenfeldt, founder of INBOUND CPH A/S. It lets Claude, Codex and other AI assistants work directly in your e-conomic books:
 > look up customers, find overdue invoices, build reports and, once you enable it,
-> create invoices and vouchers. It is a public open source project (MIT); developers are
-> welcome to improve it and open a pull request. I will now guide you through the setup
+> create invoices and vouchers. It is a public, source-available project under the PolyForm
+> Shield license: use, change and share it freely, including in your own business, but do
+> not sell it or offer it as a competing product or service. Developers are welcome to
+> improve it and open a pull request. I will now guide you through the setup
 > (typically 30–60 minutes). I handle installation, Railway deployment, keys, variables,
 > verification and connecting your client. You handle the browser steps that need your
 > own logins: the free e-conomic developer agreement and app, approving the app in your

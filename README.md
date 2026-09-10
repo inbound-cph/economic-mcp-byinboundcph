@@ -285,10 +285,13 @@ mode, tool annotations, the audit log and the fail-closed startup.
 
 ## Contributing
 
-This is a public project by [InboundCPH](https://inboundcph.dk). Improvements are welcome:
+This is a public, source-available project by [InboundCPH](https://inboundcph.dk). Improvements are welcome:
 open an issue or a pull request. Run `python -m pytest -q` before submitting, keep write
 tools tagged `write`, and never commit tokens or `.env` files. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-MIT, see [LICENSE](LICENSE). Copyright (c) 2026 INBOUND CPH A/S.
+[PolyForm Shield 1.0.0](https://polyformproject.org/licenses/shield/1.0.0), see [LICENSE](LICENSE).
+Copyright INBOUND CPH A/S. In short: you may use, change and share the software freely,
+including inside your own business and to help your own clients, but you may not sell it or
+offer it as a product or service that competes with it or with what INBOUND CPH offers using it.

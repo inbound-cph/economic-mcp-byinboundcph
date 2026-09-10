@@ -18,8 +18,8 @@ Claude / Codex / Cursor  ──login──▶  your MCP server (Railway)  ──
 **Let an AI coding agent do it** (recommended):
 
 ```bash
-git clone https://github.com/inbound-cph/economic-mcp-v2.git
-cd economic-MCP
+git clone https://github.com/inbound-cph/economic-mcp-byinboundcph.git
+cd economic-mcp-byinboundcph
 claude    # or: codex
 ```
 
@@ -221,7 +221,7 @@ explicit request. See [skills/README.md](skills/README.md).
 Install in Claude Code as a plugin:
 
 ```
-/plugin marketplace add inbound-cph/economic-mcp-v2
+/plugin marketplace add inbound-cph/economic-mcp-byinboundcph
 /plugin install economic@economic-mcp
 ```
 

@@ -55,7 +55,7 @@ exactly what to click and wait for them.
    then `codex mcp login economic`. For claude.ai / Claude Desktop: Settings → Connectors →
    Add custom connector.
 9. **Install the skills** (GUIDE.md step 5b). In Claude Code the user runs
-   `/plugin marketplace add inbound-cph/economic-mcp-v2` and `/plugin install economic@economic-mcp`
+   `/plugin marketplace add inbound-cph/economic-mcp-byinboundcph` and `/plugin install economic@economic-mcp`
    (slash commands, so the user types them). For Codex, or as an alternative for Claude Code,
    run `python scripts/install_skills.py`. Codex also picks the skills up from `.agents/skills`
    when working inside this repo.

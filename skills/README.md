@@ -26,7 +26,7 @@ Forudsætning: e-conomic MCP-serveren er tilføjet i klienten (GUIDE.md trin 4).
 **Claude Code – som plugin (anbefalet):**
 
 ```
-/plugin marketplace add inbound-cph/economic-mcp-v2
+/plugin marketplace add inbound-cph/economic-mcp-byinboundcph
 /plugin install economic@economic-mcp
 ```
 

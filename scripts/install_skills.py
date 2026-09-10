@@ -9,7 +9,7 @@ Install the e-conomic skills for Claude Code and Codex on this machine.
     python scripts/install_skills.py --uninstall
 
 Claude Code users can alternatively install the plugin:
-    /plugin marketplace add inbound-cph/economic-mcp-v2
+    /plugin marketplace add inbound-cph/economic-mcp-byinboundcph
     /plugin install economic@economic-mcp
 """
 

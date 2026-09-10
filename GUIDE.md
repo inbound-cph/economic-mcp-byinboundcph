@@ -23,8 +23,8 @@ Repoet indeholder instruktioner til AI-kodeagenter (`AGENTS.md` / `CLAUDE.md`).
 Klon repoet, åbn det i Claude Code eller Codex og bed agenten om hjælp:
 
 ```bash
-git clone https://github.com/inbound-cph/economic-mcp-v2.git
-cd economic-MCP
+git clone https://github.com/inbound-cph/economic-mcp-byinboundcph.git
+cd economic-mcp-byinboundcph
 claude          # eller: codex
 ```
 
@@ -98,8 +98,8 @@ tilføjer du personligt login, når du kender serverens adresse.
 ### 2A. Med Railway CLI fra din klon (anbefalet, kan køres af agenten)
 
 ```bash
-git clone https://github.com/inbound-cph/economic-mcp-v2.git
-cd economic-MCP
+git clone https://github.com/inbound-cph/economic-mcp-byinboundcph.git
+cd economic-mcp-byinboundcph
 
 railway login                          # åbner browseren
 railway init --name economic-mcp       # opretter projektet og linker mappen
@@ -307,7 +307,7 @@ afstemning, præcise datasvar, fakturakladder og finansbilag. Se
 **Claude Code** (som plugin, én gang pr. maskine):
 
 ```
-/plugin marketplace add inbound-cph/economic-mcp-v2
+/plugin marketplace add inbound-cph/economic-mcp-byinboundcph
 /plugin install economic@economic-mcp
 ```
 

@@ -1,5 +1,18 @@
 # Kom godt i gang: din egen e-conomic MCP-server
 
+> **Tillykke! Du har hentet InboundCPH's e-conomic MCP-server.** Det er et offentligt
+> open source-projekt under MIT-licens. Brug det frit, og er du udvikler, er du velkommen
+> til at forbedre løsningen og sende en pull request. Opsætningen tager typisk 30–60
+> minutter. Noget kan din AI-assistent klare for dig, og noget skal du selv gøre i
+> browseren, fordi det kræver dine egne logins:
+>
+> | Din AI klarer | Du gør selv |
+> |---|---|
+> | Tjekker din maskine og installerer det, der mangler | Opretter en gratis e-conomic udvikleraftale og en app (trin 1) |
+> | Deployer til Railway og genererer sikre nøgler (trin 2) | Godkender appen i dit eget regnskab (trin 1) |
+> | Sætter variabler og verificerer, at det virker | Logger ind på Railway (trin 2) |
+> | Forbinder din klient og installerer skills (trin 4 og 5b) | Opretter en OAuth-klient hos Google eller Microsoft (trin 3) |
+
 Denne guide får dig fra nul til en kørende MCP-server, som lader Claude, Codex, Cursor
 og andre AI-assistenter arbejde direkte i dit e-conomic-regnskab: slå kunder op, finde
 forfaldne fakturaer, trække saldi og posteringer, og (når du slår det til) oprette

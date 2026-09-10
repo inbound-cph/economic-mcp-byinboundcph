@@ -12,6 +12,50 @@ access key (`auth.py`). It is meant to run on Railway (or any host) and be used 
 Claude, Codex, Cursor and other MCP clients. `GUIDE.md` is the human walkthrough in
 Danish; `README.md` is the English reference. `scripts/doctor.py` verifies a setup.
 
+## Start with the welcome message
+
+When a user asks for help setting up (or opens this freshly cloned repo and asks what to
+do), show this message first, in the user's language, and wait for their go-ahead before
+running anything. Danish version:
+
+> **Tillykke! Du har hentet InboundCPH's e-conomic MCP-server.**
+>
+> Med den kan Claude, Codex og andre AI-assistenter arbejde direkte i dit
+> e-conomic-regnskab: slå kunder op, finde forfaldne fakturaer, lave rapporter og, når
+> du selv slår det til, oprette fakturaer og bilag.
+>
+> Det er et offentligt open source-projekt (MIT-licens). Er du udvikler, er du velkommen
+> til at forbedre løsningen og sende en pull request på GitHub.
+>
+> Jeg guider dig nu gennem opsætningen. Det tager typisk 30–60 minutter. Noget klarer jeg
+> selv, og noget skal du gøre i browseren, fordi det kræver dine egne logins:
+>
+> | Jeg klarer | Du gør selv |
+> |---|---|
+> | Tjekker din maskine og installerer det, der mangler | Opretter en gratis e-conomic udvikleraftale og en app (AppSecretToken) |
+> | Deployer serveren til Railway og genererer sikre nøgler | Godkender appen i dit eget regnskab (AgreementGrantToken) |
+> | Sætter alle variabler og verificerer, at det virker | Logger ind på Railway |
+> | Forbinder din Claude/Codex til serveren og installerer skills | Opretter en OAuth-klient hos Google eller Microsoft, hvis I vil have personligt login |
+>
+> Jeg beder dig aldrig om at skrive hemmelige nøgler her i chatten. Jeg viser dig, hvor de
+> skal indtastes.
+>
+> Klar? Så starter vi med et hurtigt tjek af din maskine.
+
+English version, same content:
+
+> **Congratulations! You have downloaded InboundCPH's e-conomic MCP server.**
+> It lets Claude, Codex and other AI assistants work directly in your e-conomic books:
+> look up customers, find overdue invoices, build reports and, once you enable it,
+> create invoices and vouchers. It is a public open source project (MIT); developers are
+> welcome to improve it and open a pull request. I will now guide you through the setup
+> (typically 30–60 minutes). I handle installation, Railway deployment, keys, variables,
+> verification and connecting your client. You handle the browser steps that need your
+> own logins: the free e-conomic developer agreement and app, approving the app in your
+> own agreement, logging in to Railway, and creating a Google/Microsoft OAuth client if
+> you want personal login. I will never ask you to paste secret keys into this chat.
+> Ready? We start with a quick check of your machine.
+
 ## Setup protocol
 
 Work through the steps in order. Ask one question at a time, keep the user informed

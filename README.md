@@ -281,6 +281,12 @@ mode, tool annotations, the audit log and the fail-closed startup.
 - Auth: https://www.e-conomic.com/developer/authentication
 - FastMCP auth: https://gofastmcp.com/servers/auth
 
+## Contributing
+
+This is a public project by [InboundCPH](https://inboundcph.dk). Improvements are welcome:
+open an issue or a pull request. Run `python -m pytest -q` before submitting, keep write
+tools tagged `write`, and never commit tokens or `.env` files. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## License
 
 MIT, see [LICENSE](LICENSE). Copyright (c) 2026 INBOUND CPH A/S.

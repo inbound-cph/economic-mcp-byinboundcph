@@ -39,7 +39,14 @@ os.environ.setdefault("FASTMCP_CHECK_FOR_UPDATES", "off")
 from fastmcp import FastMCP  # noqa: E402
 from starlette.responses import JSONResponse  # noqa: E402
 
-from auth import AuditMiddleware, AuthConfigError, build_auth_provider, resolve_auth_settings  # noqa: E402
+from auth import (  # noqa: E402
+    AuditMiddleware,
+    AuthConfigError,
+    build_auth_provider,
+    current_user_may_write,
+    make_write_check,
+    resolve_auth_settings,
+)
 
 logging.basicConfig(
     level=os.environ.get("LOG_LEVEL", "INFO").upper(),
@@ -177,6 +184,10 @@ else:
     logger.info("Authentication: %s", AUTH_SETTINGS.summary())
 if READ_ONLY:
     logger.info("Read-only mode ENABLED: write tools are hidden and economic_api_request accepts GET only")
+else:
+    logger.info("Write access: %s", AUTH_SETTINGS.write_summary())
+    if AUTH_SETTINGS.write_users and _auth is None:
+        logger.warning("MCP_WRITE_USERS has no effect without authentication: nobody can be identified, so write tools are hidden")
 
 mcp = FastMCP(
     name="e-conomic MCP",
@@ -190,6 +201,9 @@ mcp = FastMCP(
     auth=_auth,
     middleware=[AuditMiddleware()],
 )
+
+# Write tools are only listed and callable for identities in MCP_WRITE_USERS (empty = everyone).
+_WRITE_AUTH = [make_write_check(lambda: AUTH_SETTINGS.write_users)]
 
 # Tool annotations tell MCP clients which tools are safe and which change the books.
 _READ = {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True}
@@ -383,7 +397,7 @@ async def get_customer(customer_number: int) -> Any:
     return await _request("GET", f"/customers/{customer_number}")
 
 
-@mcp.tool(tags={"write"}, annotations=_CREATE)
+@mcp.tool(tags={"write"}, annotations=_CREATE, auth=_WRITE_AUTH)
 async def create_customer(
     name: str,
     currency: str,
@@ -422,7 +436,7 @@ async def create_customer(
     return await _request("POST", "/customers", json=body)
 
 
-@mcp.tool(tags={"write"}, annotations=_MODIFY)
+@mcp.tool(tags={"write"}, annotations=_MODIFY, auth=_WRITE_AUTH)
 async def update_customer(customer_number: int, updates: dict) -> Any:
     """Update fields on an existing customer. Fetches the current customer, merges the
     given updates (e-conomic field names, e.g. {"name": "New Name", "email": "a@b.dk"})
@@ -432,7 +446,7 @@ async def update_customer(customer_number: int, updates: dict) -> Any:
     return await _request("PUT", f"/customers/{customer_number}", json=current)
 
 
-@mcp.tool(tags={"write"}, annotations=_MODIFY)
+@mcp.tool(tags={"write"}, annotations=_MODIFY, auth=_WRITE_AUTH)
 async def delete_customer(customer_number: int) -> Any:
     """Delete a customer. Only possible if the customer has no booked entries."""
     return await _request("DELETE", f"/customers/{customer_number}")
@@ -490,7 +504,7 @@ async def get_supplier(supplier_number: int) -> Any:
     return await _request("GET", f"/suppliers/{supplier_number}")
 
 
-@mcp.tool(tags={"write"}, annotations=_CREATE)
+@mcp.tool(tags={"write"}, annotations=_CREATE, auth=_WRITE_AUTH)
 async def create_supplier(
     name: str,
     currency: str,
@@ -556,7 +570,7 @@ async def list_product_groups(skip_pages: int = 0, page_size: int = 20) -> Any:
     return await _get_collection("/product-groups", skip_pages, page_size)
 
 
-@mcp.tool(tags={"write"}, annotations=_CREATE)
+@mcp.tool(tags={"write"}, annotations=_CREATE, auth=_WRITE_AUTH)
 async def create_product(
     product_number: str,
     name: str,
@@ -585,7 +599,7 @@ async def create_product(
     return await _request("POST", "/products", json=body)
 
 
-@mcp.tool(tags={"write"}, annotations=_MODIFY)
+@mcp.tool(tags={"write"}, annotations=_MODIFY, auth=_WRITE_AUTH)
 async def update_product(product_number: str, updates: dict) -> Any:
     """Update fields on an existing product. Fetches the current product, merges the given
     updates (e-conomic field names, e.g. {"salesPrice": 995, "name": "New name"}) and PUTs it back."""
@@ -595,7 +609,7 @@ async def update_product(product_number: str, updates: dict) -> Any:
     return await _request("PUT", f"/products/{encoded_product_number}", json=current)
 
 
-@mcp.tool(tags={"write"}, annotations=_MODIFY)
+@mcp.tool(tags={"write"}, annotations=_MODIFY, auth=_WRITE_AUTH)
 async def delete_product(product_number: str) -> Any:
     """Delete a product. Only possible if the product is not used on any documents."""
     return await _request("DELETE", f"/products/{_encode_identifier(product_number)}")
@@ -677,7 +691,7 @@ async def get_booked_invoice_pdf(booked_invoice_number: int) -> Any:
     return await _request_pdf(f"/invoices/booked/{booked_invoice_number}/pdf")
 
 
-@mcp.tool(tags={"write"}, annotations=_MODIFY)
+@mcp.tool(tags={"write"}, annotations=_MODIFY, auth=_WRITE_AUTH)
 async def register_invoice_as_sent(
     draft_invoice_number: int,
     send_by: Literal["ean", "Email"] = "ean",
@@ -691,7 +705,7 @@ async def register_invoice_as_sent(
     return await _request("POST", "/invoices/booked", json=body)
 
 
-@mcp.tool(tags={"write"}, annotations=_MODIFY)
+@mcp.tool(tags={"write"}, annotations=_MODIFY, auth=_WRITE_AUTH)
 async def update_draft_invoice(draft_invoice_number: int, updates: dict) -> Any:
     """Update a draft invoice. Fetches the current draft, merges the given updates
     (e-conomic field names, e.g. {"notes": {"heading": "..."}, "lines": [...]}) and PUTs it back.
@@ -701,7 +715,7 @@ async def update_draft_invoice(draft_invoice_number: int, updates: dict) -> Any:
     return await _request("PUT", f"/invoices/drafts/{draft_invoice_number}", json=current)
 
 
-@mcp.tool(tags={"write"}, annotations=_CREATE)
+@mcp.tool(tags={"write"}, annotations=_CREATE, auth=_WRITE_AUTH)
 async def create_draft_invoice(
     customer_number: int,
     currency: str,
@@ -758,7 +772,7 @@ async def create_draft_invoice(
     return await _request("POST", "/invoices/drafts", json=body)
 
 
-@mcp.tool(tags={"write"}, annotations=_MODIFY)
+@mcp.tool(tags={"write"}, annotations=_MODIFY, auth=_WRITE_AUTH)
 async def book_draft_invoice(
     draft_invoice_number: int,
     send_by: Literal["none", "ean", "Email"] = "none",
@@ -775,7 +789,7 @@ async def book_draft_invoice(
     return await _request("POST", "/invoices/booked", json=body)
 
 
-@mcp.tool(tags={"write"}, annotations=_MODIFY)
+@mcp.tool(tags={"write"}, annotations=_MODIFY, auth=_WRITE_AUTH)
 async def delete_draft_invoice(draft_invoice_number: int) -> Any:
     """Delete a draft invoice."""
     return await _request("DELETE", f"/invoices/drafts/{draft_invoice_number}")
@@ -809,7 +823,7 @@ async def list_archived_quotes(skip_pages: int = 0, page_size: int = 20) -> Any:
     return await _get_collection("/quotes/archived", skip_pages, page_size)
 
 
-@mcp.tool(tags={"write"}, annotations=_MODIFY)
+@mcp.tool(tags={"write"}, annotations=_MODIFY, auth=_WRITE_AUTH)
 async def register_quote_as_sent(quote_number: int) -> Any:
     """Register a draft quote as sent. e-conomic requires the complete unchanged quote document."""
     quote_document = await _request("GET", f"/quotes/drafts/{quote_number}")
@@ -924,7 +938,7 @@ async def get_journal_vouchers(journal_number: int, skip_pages: int = 0, page_si
     return await _get_collection(f"/journals/{journal_number}/vouchers", skip_pages, page_size)
 
 
-@mcp.tool(tags={"write"}, annotations=_CREATE)
+@mcp.tool(tags={"write"}, annotations=_CREATE, auth=_WRITE_AUTH)
 async def create_finance_voucher(
     journal_number: int,
     accounting_year: str,
@@ -964,7 +978,7 @@ async def create_finance_voucher(
     return await _request("POST", f"/journals/{journal_number}/vouchers", json=body)
 
 
-@mcp.tool(tags={"write"}, annotations=_CREATE)
+@mcp.tool(tags={"write"}, annotations=_CREATE, auth=_WRITE_AUTH)
 async def create_journal_voucher(journal_number: int, voucher: dict) -> Any:
     """Create a raw voucher in a journal for advanced cases (customer payments, supplier
     invoices/payments, multi-line finance vouchers). The voucher dict must follow the
@@ -1069,6 +1083,8 @@ async def economic_api_request(
         raise ValueError(f"Unsupported HTTP method: {method}")
     if READ_ONLY and method != "GET":
         raise ValueError("This server runs in read-only mode (MCP_READ_ONLY=true); only GET requests are allowed")
+    if method != "GET" and not current_user_may_write(AUTH_SETTINGS.write_users):
+        raise ValueError("Your user has read-only access on this server; only GET requests are allowed (see MCP_WRITE_USERS)")
     path = _validate_api_path(path)
     return await _request(method, path, params=params, json=body)
 

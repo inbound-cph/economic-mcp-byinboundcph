@@ -156,7 +156,9 @@ exactly what to click and wait for them.
    when working inside this repo.
 10. **First test** in the client: "Hvad hedder mit firma i e-conomic?" and
    "Vis mine forfaldne fakturaer". Explain that write tools are hidden until
-   `MCP_READ_ONLY` is set to `false`, and that booking invoices is irreversible.
+   `MCP_READ_ONLY` is set to `false`, and that booking invoices is irreversible. When they
+   enable writes, set `MCP_WRITE_USERS` to the few people who book, so everyone else stays
+   read-only.
 
 ## Security rules – never break these
 
@@ -225,6 +227,7 @@ exactly what to click and wait for them.
 | `MCP_USER_<NAME>` | `email:hash` for the server's own e-mail + password login (`scripts/new_user.py`) |
 | `MCP_LOGIN_SESSION_DAYS`, `MCP_LOGIN_ACCESS_TOKEN_MINUTES` | E-mail login lifetimes (defaults 30 days sliding, 60 min) |
 | `MCP_PUBLIC_URL` | Public https URL; derived from `RAILWAY_PUBLIC_DOMAIN` on Railway |
-| `MCP_READ_ONLY` | `true` hides all write tools |
+| `MCP_READ_ONLY` | `true` hides all write tools for everyone |
+| `MCP_WRITE_USERS` | Key names / e-mails allowed to use write tools; everyone else is read-only |
 | `MCP_ALLOW_UNAUTHENTICATED` | Local testing only |
 | `MCP_JWT_SIGNING_KEY`, `MCP_ALLOWED_CLIENT_REDIRECT_URIS`, `MCP_HOST`, `FASTMCP_HOME` | Optional hardening / hosting knobs |

@@ -257,6 +257,58 @@ def test_login_plus_service_token_uses_multi_auth():
 
 
 # ---------------------------------------------------------------------------
+# Per-user write access
+# ---------------------------------------------------------------------------
+
+
+def test_write_users_are_parsed_and_validated():
+    settings = auth.resolve_auth_settings({"MCP_AUTH_TOKEN_CFO": "c" * 40, "MCP_AUTH_TOKEN_ANNA": "a" * 40, "MCP_WRITE_USERS": "CFO, bo@firma.dk"})
+    assert settings.write_users == frozenset({"cfo", "bo@firma.dk"})
+    assert "write tools only for bo@firma.dk, cfo" in settings.write_summary()
+    assert auth.resolve_auth_settings({"MCP_AUTH_TOKEN_CFO": "c" * 40}).write_users == frozenset()
+    with pytest.raises(auth.AuthConfigError, match="not an access key name"):
+        auth.resolve_auth_settings({"MCP_AUTH_TOKEN_CFO": "c" * 40, "MCP_WRITE_USERS": "ceo"})
+
+
+def test_write_allowed_uses_email_then_key_name():
+    everyone = frozenset()
+    only_cfo = frozenset({"cfo", "anna@firma.dk"})
+    cfo = AccessToken(token="t", client_id="cfo", scopes=[])
+    anna = AccessToken(token="t", client_id="upstream", scopes=[], claims={"email": "Anna@Firma.dk"})
+    bo = AccessToken(token="t", client_id="bo", scopes=[])
+    assert auth.write_allowed(everyone, None) and auth.write_allowed(everyone, bo)
+    assert auth.write_allowed(only_cfo, cfo) and auth.write_allowed(only_cfo, anna)
+    assert not auth.write_allowed(only_cfo, bo) and not auth.write_allowed(only_cfo, None)
+    check = auth.make_write_check(lambda: only_cfo)
+    assert check(auth.AuthContext(token=cfo, component=None)) is True
+    assert check(auth.AuthContext(token=bo, component=None)) is False
+
+
+def test_write_tools_hidden_for_users_outside_write_list(monkeypatch):
+    import dataclasses
+
+    async def visible_tools():
+        async with Client(server.mcp) as client:
+            return {tool.name for tool in await client.list_tools()}
+
+    restricted = dataclasses.replace(server.AUTH_SETTINGS, write_users=frozenset({"cfo"}))
+    monkeypatch.setattr(server, "AUTH_SETTINGS", restricted)
+    visible = run(visible_tools())  # in-memory client has no token -> not on the list
+    assert len(visible) == 58 and "create_draft_invoice" not in visible
+
+    async def fake_request(method, path, params=None, json=None, idempotency_key=None):
+        return {"method": method}
+
+    monkeypatch.setattr(server, "_request", fake_request)
+    assert run(server.economic_api_request("GET", "/self")) == {"method": "GET"}
+    with pytest.raises(ValueError, match="read-only access"):
+        run(server.economic_api_request("POST", "/customers", body={}))
+
+    monkeypatch.setattr(server, "AUTH_SETTINGS", dataclasses.replace(restricted, write_users=frozenset()))
+    assert len(run(visible_tools())) == 73
+
+
+# ---------------------------------------------------------------------------
 # Audit logging
 # ---------------------------------------------------------------------------
 

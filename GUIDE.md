@@ -212,6 +212,10 @@ Hvert kald logges med personens navn eller e-mail.
 
 De to første kan kombineres: nøgler til de få og login til resten.
 
+**Hvem må skrive?** Med `MCP_READ_ONLY=true` kan ingen. Slår du skrivning til, så sæt
+`MCP_WRITE_USERS=cfo,anna@firma.dk` (nøglenavne eller e-mails). Kun de nævnte ser og kan
+bruge skriveværktøjerne; alle andre har fortsat kun læseadgang.
+
 ---
 
 ## Trin 3: Personligt login (valgfrit)
@@ -370,7 +374,14 @@ railway variable set MCP_READ_ONLY=false --service economic-mcp
 ```
 
 Skriveværktøjerne (opret kunde/produkt/fakturakladde, bogfør, slet, bilag) bliver
-synlige. Klienterne får at vide, at de ændrer data, og vil normalt bede dig bekræfte.
+synlige. Begræns dem til de personer, der faktisk bogfører:
+
+```bash
+railway variable set MCP_WRITE_USERS=cfo,anna@firma.dk --service economic-mcp
+```
+
+Alle andre beholder læseadgang. Klienterne får at vide, at værktøjerne ændrer data, og vil
+normalt bede dig bekræfte. Slå aldrig automatisk godkendelse af skriveværktøjer til.
 **Bogføring (`book_draft_invoice`, `register_invoice_as_sent`) kan ikke fortrydes.**
 
 ---
@@ -406,7 +417,7 @@ Skriveskills viser altid et forslag først og bogfører aldrig uden et udtrykkel
 - [ ] `MCP_ALLOWED_DOMAINS`/`MCP_ALLOWED_EMAILS` indeholder kun de personer, der skal have adgang.
 - [ ] e-conomic-appen har den mindste rolle, der dækker behovet.
 - [ ] Hver person har sin egen adgangsnøgle (`MCP_AUTH_TOKEN_<NAVN>`), og nøgler til folk, der er stoppet, er slettet.
-- [ ] `MCP_READ_ONLY=true` indtil skriveflowet er testet.
+- [ ] `MCP_READ_ONLY=true` indtil skriveflowet er testet, og derefter `MCP_WRITE_USERS` med kun dem, der bogfører.
 - [ ] `.env` er ikke i git (er dækket af `.gitignore`).
 - [ ] Der er en Railway-volume (`/data`), så login-sessioner ikke nulstilles ved deploy.
 - [ ] Du ved hvordan du trækker adgang tilbage: fjern personen fra allowlisten, roter

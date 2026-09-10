@@ -18,7 +18,9 @@ login give every user a personal browser login (OAuth 2.1 with PKCE) through Fas
 OAuth proxy; only accounts on the allowlist (or inside the Microsoft tenant) are
 accepted, both when logging in and on every request. Keys and login can be combined.
 
-Every tool call is written to the audit log with the identity of the caller.
+Write access can be limited to named people with MCP_WRITE_USERS (key names or e-mails);
+everyone else only sees the read tools. Every tool call is written to the audit log with the
+identity of the caller.
 """
 
 from __future__ import annotations
@@ -30,7 +32,7 @@ from dataclasses import dataclass, field
 from typing import Any, Mapping, Optional
 from urllib.parse import urlsplit
 
-from fastmcp.server.auth import AccessToken, AuthProvider, MultiAuth, TokenVerifier
+from fastmcp.server.auth import AccessToken, AuthContext, AuthProvider, MultiAuth, TokenVerifier
 from fastmcp.server.auth.providers.azure import AzureProvider
 from fastmcp.server.auth.providers.google import GoogleProvider
 from fastmcp.server.auth.providers.jwt import StaticTokenVerifier
@@ -230,6 +232,7 @@ class AuthSettings:
     allowlist: Allowlist = field(default_factory=Allowlist)
     access_keys: dict[str, str] = field(default_factory=dict)  # name -> key
     users: dict[str, str] = field(default_factory=dict)  # email -> password hash
+    write_users: frozenset[str] = frozenset()  # identities allowed to use write tools; empty = everyone
     login_access_token_minutes: int = 60
     login_session_days: int = 30
     jwt_signing_key: Optional[str] = None
@@ -251,6 +254,11 @@ class AuthSettings:
         if self.mode in {"google", "microsoft"} and self.public_url:
             return f"{self.public_url}/auth/callback"
         return None
+
+    def write_summary(self) -> str:
+        if not self.write_users:
+            return "write tools available to every authenticated user (unless MCP_READ_ONLY=true)"
+        return "write tools only for " + ", ".join(sorted(self.write_users))
 
     def summary(self) -> str:
         if self.mode == "none":
@@ -300,10 +308,20 @@ def resolve_auth_settings(env: Mapping[str, str]) -> AuthSettings:
     if users and (any(google.values()) or any(azure.values())):
         raise AuthConfigError("E-mail login (MCP_USER_*) cannot be combined with Google or Microsoft login; pick one login method")
 
+    write_users = frozenset(item.lower() for item in _split_list(get("MCP_WRITE_USERS")))
+    known_identities = set(access_keys) | set(users)
+    unknown = sorted(u for u in write_users if u not in known_identities and "@" not in u)
+    if unknown:
+        raise AuthConfigError(
+            f"MCP_WRITE_USERS mentions {', '.join(unknown)}, which is not an access key name; use key names "
+            "(the part after MCP_AUTH_TOKEN_) or e-mail addresses"
+        )
+
     common = dict(
         public_url=public_url,
         allowlist=allowlist,
         access_keys=access_keys,
+        write_users=write_users,
         jwt_signing_key=jwt_signing_key,
         allowed_client_redirect_uris=redirect_uris,
     )
@@ -379,7 +397,7 @@ def resolve_auth_settings(env: Mapping[str, str]) -> AuthSettings:
         raise AuthConfigError(
             "MCP_ALLOWED_EMAILS/MCP_ALLOWED_DOMAINS only take effect together with Google or Microsoft login"
         )
-    return AuthSettings(mode="none", public_url=public_url)
+    return AuthSettings(mode="none", public_url=public_url, write_users=write_users)
 
 
 # ---------------------------------------------------------------------------
@@ -491,6 +509,43 @@ def build_auth_provider(settings: AuthSettings) -> Optional[AuthProvider]:
         )
         return MultiAuth(server=oauth_provider, verifiers=[verifier])
     return oauth_provider
+
+
+# ---------------------------------------------------------------------------
+# Per-user write access
+# ---------------------------------------------------------------------------
+
+
+def token_identity(token: Optional[AccessToken]) -> Optional[str]:
+    if token is None:
+        return None
+    claims = getattr(token, "claims", None) or {}
+    return identity_from_claims(claims) or (token.client_id.lower() if token.client_id else None)
+
+
+def write_allowed(write_users: frozenset[str], token: Optional[AccessToken]) -> bool:
+    """Empty MCP_WRITE_USERS means everyone may write; otherwise only the listed identities."""
+    if not write_users:
+        return True
+    identity = token_identity(token)
+    return identity is not None and identity in write_users
+
+
+def make_write_check(get_write_users):
+    """FastMCP auth check for write tools; hides and blocks them for everyone not listed."""
+
+    def check(ctx: AuthContext) -> bool:
+        return write_allowed(get_write_users(), ctx.token)
+
+    return check
+
+
+def current_user_may_write(write_users: frozenset[str]) -> bool:
+    try:
+        token = get_access_token()
+    except Exception:  # pragma: no cover
+        return False
+    return write_allowed(write_users, token)
 
 
 # ---------------------------------------------------------------------------

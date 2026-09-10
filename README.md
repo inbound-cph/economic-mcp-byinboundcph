@@ -124,10 +124,13 @@ e.g. `http://localhost:*,https://claude.ai/*`).
 `MCP_ALLOW_UNAUTHENTICATED=true` disables all of this for local testing only; the server
 then listens on `127.0.0.1` and logs a warning.
 
-## Read-only mode and audit log
+## Read-only mode, write users and audit log
 
 - `MCP_READ_ONLY=true` hides every tool that creates, changes, books or deletes anything
   (15 tools) and limits `economic_api_request` to `GET`. Start with it on.
+- `MCP_WRITE_USERS=cfo,anna@firma.dk` limits the write tools to the listed identities (key
+  names or e-mails) when read-only is off. Everyone else sees only the 58 read tools, cannot
+  call the write tools even by name, and gets `GET` only from the generic API tool.
 - Every tool call is logged as `tool=… user=… status=… duration_ms=…` on the
   `economic-mcp.audit` logger. `user` is the e-mail of the logged-in person, the key name
   (`cfo`, `anna`) for personal access keys, or `service-token`. Arguments and data are never logged.
@@ -147,7 +150,8 @@ then listens on `127.0.0.1` and logs a warning.
 | `MCP_USER_<NAME>` | | `email:pbkdf2_sha256$…` for e-mail + password login (create with `scripts/new_user.py`) |
 | `MCP_LOGIN_SESSION_DAYS` / `MCP_LOGIN_ACCESS_TOKEN_MINUTES` | `30` / `60` | Lifetimes for e-mail login sessions and access tokens |
 | `MCP_PUBLIC_URL` | from `RAILWAY_PUBLIC_DOMAIN` | Public https URL, needed for login |
-| `MCP_READ_ONLY` | `false` | Hide write tools |
+| `MCP_READ_ONLY` | `false` | Hide write tools for everyone |
+| `MCP_WRITE_USERS` | everyone | Comma-separated key names / e-mails allowed to use write tools |
 | `MCP_ALLOW_UNAUTHENTICATED` | `false` | Local testing only |
 | `MCP_JWT_SIGNING_KEY` | derived from client secret | Signing key for issued tokens |
 | `MCP_ALLOWED_CLIENT_REDIRECT_URIS` | all | Redirect URI patterns for MCP clients |

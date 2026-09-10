@@ -9,6 +9,8 @@ The server picks its protection automatically from environment variables:
                     (+ allowlist, required when the tenant is not your own)
   Access keys       MCP_AUTH_TOKEN_<NAME> per person (e.g. MCP_AUTH_TOKEN_CFO) and/or
                     MCP_AUTH_TOKEN for automations; each at least 32 characters
+  E-mail login      MCP_USER_<NAME>=email:hash per person (see local_users.py); the server
+                    hosts its own login page, no Google/Microsoft needed
 
 Access keys are the simplest gate for a small team: one variable per person, the audit
 log shows the name, and removing the variable removes the access. Google and Microsoft
@@ -35,6 +37,8 @@ from fastmcp.server.auth.providers.jwt import StaticTokenVerifier
 from fastmcp.server.dependencies import get_access_token
 from fastmcp.server.middleware import Middleware, MiddlewareContext
 from mcp.server.auth.provider import TokenError
+
+from local_users import LocalUsersProvider, UserConfigError, parse_users
 
 logger = logging.getLogger("economic-mcp.auth")
 audit_logger = logging.getLogger("economic-mcp.audit")
@@ -221,10 +225,11 @@ def _public_url_from_env(env: Mapping[str, str]) -> Optional[str]:
 
 @dataclass(frozen=True)
 class AuthSettings:
-    mode: str  # "google" | "microsoft" | "token" | "none"
+    mode: str  # "google" | "microsoft" | "users" | "token" | "none"
     public_url: Optional[str] = None
     allowlist: Allowlist = field(default_factory=Allowlist)
     access_keys: dict[str, str] = field(default_factory=dict)  # name -> key
+    users: dict[str, str] = field(default_factory=dict)  # email -> password hash
     jwt_signing_key: Optional[str] = None
     allowed_client_redirect_uris: Optional[tuple[str, ...]] = None
     google_client_id: Optional[str] = None
@@ -237,11 +242,13 @@ class AuthSettings:
 
     @property
     def uses_oauth(self) -> bool:
-        return self.mode in {"google", "microsoft"}
+        return self.mode in {"google", "microsoft", "users"}
 
     @property
     def oauth_callback_url(self) -> Optional[str]:
-        return f"{self.public_url}/auth/callback" if self.uses_oauth and self.public_url else None
+        if self.mode in {"google", "microsoft"} and self.public_url:
+            return f"{self.public_url}/auth/callback"
+        return None
 
     def summary(self) -> str:
         if self.mode == "none":
@@ -249,6 +256,11 @@ class AuthSettings:
         keys = "access keys for " + ", ".join(sorted(self.access_keys)) if self.access_keys else ""
         if self.mode == "token":
             return keys
+        if self.mode == "users":
+            text = f"e-mail login for {len(self.users)} user(s): " + ", ".join(sorted(self.users))
+            if keys:
+                text += f", plus {keys}"
+            return text
         label = "Google login" if self.mode == "google" else f"Microsoft login (tenant {self.azure_tenant_id})"
         text = f"{label}, allowlist: {self.allowlist.summary()}"
         if keys:
@@ -271,10 +283,17 @@ def resolve_auth_settings(env: Mapping[str, str]) -> AuthSettings:
         raise AuthConfigError(f"MCP_JWT_SIGNING_KEY must be at least {MIN_SECRET_LENGTH} characters")
     redirect_uris = tuple(_split_list(get("MCP_ALLOWED_CLIENT_REDIRECT_URIS"))) or None
 
+    try:
+        users = parse_users(env)
+    except UserConfigError as exc:
+        raise AuthConfigError(str(exc)) from exc
+
     google = {key: get(key) for key in ("GOOGLE_OAUTH_CLIENT_ID", "GOOGLE_OAUTH_CLIENT_SECRET")}
     azure = {key: get(key) for key in ("AZURE_CLIENT_ID", "AZURE_CLIENT_SECRET", "AZURE_TENANT_ID")}
     if any(google.values()) and any(azure.values()):
         raise AuthConfigError("Configure either Google login or Microsoft login, not both")
+    if users and (any(google.values()) or any(azure.values())):
+        raise AuthConfigError("E-mail login (MCP_USER_*) cannot be combined with Google or Microsoft login; pick one login method")
 
     common = dict(
         public_url=public_url,
@@ -329,6 +348,16 @@ def resolve_auth_settings(env: Mapping[str, str]) -> AuthSettings:
             azure_identifier_uri=get("AZURE_IDENTIFIER_URI") or None,
             **common,
         )
+
+    if users:
+        if not public_url:
+            raise AuthConfigError(
+                "E-mail login requires MCP_PUBLIC_URL (the server's public https URL). "
+                "On Railway it is derived automatically from RAILWAY_PUBLIC_DOMAIN once a domain has been generated."
+            )
+        if not allowlist.is_empty:
+            raise AuthConfigError("MCP_ALLOWED_EMAILS/MCP_ALLOWED_DOMAINS are not used with e-mail login; the MCP_USER_* variables are the list")
+        return AuthSettings(mode="users", users=users, **common)
 
     if access_keys:
         return AuthSettings(mode="token", **common)
@@ -389,8 +418,16 @@ def build_auth_provider(settings: AuthSettings) -> Optional[AuthProvider]:
         return _access_key_verifier(settings.access_keys, [SERVICE_SCOPE], required_scopes=[SERVICE_SCOPE])
 
     redirect_uris = list(settings.allowed_client_redirect_uris) if settings.allowed_client_redirect_uris else None
-    if settings.mode == "google":
-        provider: _AllowlistGuard = GuardedGoogleProvider(
+    if settings.mode == "users":
+        import fastmcp
+
+        provider: AuthProvider = LocalUsersProvider(
+            settings.users,
+            base_url=settings.public_url or "",
+            state_dir=fastmcp.settings.home / "local-users",
+        )
+    elif settings.mode == "google":
+        provider = GuardedGoogleProvider(
             client_id=settings.google_client_id,
             client_secret=settings.google_client_secret,
             base_url=settings.public_url,

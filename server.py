@@ -163,7 +163,8 @@ if AUTH_SETTINGS.mode == "none" and not ALLOW_UNAUTHENTICATED:
     raise RuntimeError(
         "No authentication is configured, so the server refuses to start. Configure Google login "
         "(GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET plus MCP_ALLOWED_EMAILS or MCP_ALLOWED_DOMAINS), "
-        "Microsoft login (AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID) or access keys "
+        "Microsoft login (AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID), e-mail login "
+        "(MCP_USER_<NAME>=email:hash, see scripts/new_user.py) or access keys "
         "(MCP_AUTH_TOKEN_<NAME> per person, e.g. MCP_AUTH_TOKEN_CFO). "
         "For local testing only, set MCP_ALLOW_UNAUTHENTICATED=true."
     )

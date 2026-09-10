@@ -97,7 +97,8 @@ exactly what to click and wait for them.
      private Gmail accounts → Google login with audience *External* in testing mode, adding
      each user under *Audience → Test users* (up to 100, no verification needed). No
      identity provider, or just a few named people → personal access keys are the simplest
-     and fully sufficient; personal login can be added later.
+     and fully sufficient. No identity provider but the server must be shared as a claude.ai
+     connector → e-mail + password login (`MCP_USER_*`). Personal login can be added later.
    - **Client**: ask whether they will use Claude Code, claude.ai/Claude Desktop, Codex or
      something else, so step 8 fits.
 4. **e-conomic tokens.** Explain the three browser steps from `GUIDE.md` step 1
@@ -126,8 +127,11 @@ exactly what to click and wait for them.
    group (CFO, finance, management) create one key per person with
    `python scripts/new_key.py <name>`; the audit log shows the name and deleting the
    variable revokes access. Only when the server is shared with a whole organisation as a
-   claude.ai / Claude Desktop connector is Google/Microsoft login needed (connectors require
-   OAuth); the allowlist then decides who gets in. Explain this choice to the user.
+   claude.ai / Claude Desktop connector is a login needed (connectors require OAuth):
+   Google/Microsoft login if the company has Workspace or Microsoft 365 (the allowlist then
+   decides who gets in), otherwise the server's own e-mail + password login
+   (`python scripts/new_user.py <name> <email>` per person, GUIDE.md step 3C). Explain this
+   choice to the user and say plainly that e-mail login has no MFA.
 6. **Personal login** (GUIDE.md step 3), only if the user wants organisation-wide sharing
    through claude.ai connectors or prefers browser login. Recommend Google login for Google
    Workspace organisations and Microsoft login for Microsoft 365 organisations. The redirect URI to
@@ -190,10 +194,12 @@ exactly what to click and wait for them.
 | Path | Purpose |
 |---|---|
 | `server.py` | FastMCP server, e-conomic HTTP client, the 73 tools, health route, entrypoint |
-| `auth.py` | Login modes, allowlist, access key, audit middleware |
+| `auth.py` | Login modes, allowlist, access keys, audit middleware |
 | `scripts/doctor.py` | Setup and deployment checker |
 | `scripts/install_skills.py` | Copies or links the skills into ~/.claude/skills and ~/.agents/skills |
 | `scripts/new_key.py` | Generates a personal access key and prints where to store it |
+| `scripts/new_user.py` | Creates an e-mail + password user (hash only) for the server's login page |
+| `local_users.py` | The server-hosted e-mail + password OAuth login (login page, hashing, lockout, tokens) |
 | `skills/` | Seven Danish skills (SKILL.md each); `.claude-plugin/` makes the repo a Claude Code plugin marketplace; `.agents/skills` symlinks here for Codex |
 | `tests/` | Pytest suite (in-memory MCP client, mocked e-conomic API) |
 | `GUIDE.md` | Danish step-by-step guide for humans |
@@ -212,6 +218,7 @@ exactly what to click and wait for them.
 | `MCP_ALLOWED_EMAILS`, `MCP_ALLOWED_DOMAINS` | Who may log in (required for Google) |
 | `MCP_AUTH_TOKEN_<NAME>` | One access key per person (32+ chars); `<NAME>` is the identity in the audit log |
 | `MCP_AUTH_TOKEN` | Access key for automations (identity `service-token`) |
+| `MCP_USER_<NAME>` | `email:hash` for the server's own e-mail + password login (`scripts/new_user.py`) |
 | `MCP_PUBLIC_URL` | Public https URL; derived from `RAILWAY_PUBLIC_DOMAIN` on Railway |
 | `MCP_READ_ONLY` | `true` hides all write tools |
 | `MCP_ALLOW_UNAUTHENTICATED` | Local testing only |

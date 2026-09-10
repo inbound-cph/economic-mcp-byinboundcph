@@ -64,7 +64,7 @@ gennem resten. Her er samme liste til dig:
 | **Git**, **Python 3.10+** og **Railway CLI** | Assistenten installerer dem. Mac: `xcode-select --install` og `brew install python railway`. Windows: `winget install Git.Git Python.Python.3.12` og `npm i -g @railway/cli`. Linux: `sudo apt install git python3 python3-venv` og `npm i -g @railway/cli`. |
 | **Railway-konto** (hosting) | `railway login` opretter kontoen i browseren, hvis du ikke har en (log ind med GitHub eller e-mail). Deploy kræver Hobby-planen: et lille månedligt beløb, der inkluderer forbrug, se [railway.com/pricing](https://railway.com/pricing). Du vælger planen i Railway-dashboardet første gang. |
 | **e-conomic-regnskab med API-adgang** | Intet regnskab endnu: opret en gratis prøveperiode på [e-conomic.dk](https://www.e-conomic.dk) eller test med `demo`-tokens (kræver intet). Har du et regnskab, er API-adgang med i de fleste pakker; bliver appen afvist med en besked om API/integrationer, så bed e-conomic support om at slå API-adgang til. Kun regnskabets ejer eller en administrator kan godkende appen i trin 1, så hav den person ved tastaturet. |
-| **Konto til personligt login** (valgfrit) | Kun nødvendigt, hvis serveren skal deles som connector med hele organisationen via claude.ai. Bruger I Google Workspace: Google-login med målgruppe *Internal*. Bruger I Microsoft 365: Microsoft-login. Har I kun private Gmail-konti: Google-login med målgruppe *External* i testtilstand (brugere tilføjes under *Audience → Test users*). Ellers klarer personlige adgangsnøgler det hele. |
+| **Konto til personligt login** (valgfrit) | Kun nødvendigt, hvis serveren skal deles som connector med hele organisationen via claude.ai. Bruger I Google Workspace: Google-login. Bruger I Microsoft 365: Microsoft-login. Ingen af delene: serverens egen e-mail-og-kodeord-login (trin 3C), ingen ekstern konto nødvendig. Til en lille gruppe i Claude Code/Codex klarer personlige adgangsnøgler det hele. |
 
 ---
 
@@ -206,7 +206,7 @@ Hvert kald logges med personens navn eller e-mail.
 | Situation | Vælg | Sådan styres adgangen |
 |---|---|---|
 | 2–10 navngivne personer (CFO, økonomi, direktion) med Claude Code, Codex, Cursor eller Claude Desktop | **Personlige adgangsnøgler** (trin 2) | Én variabel pr. person. Slet variablen for at fjerne adgang. Ingen login-tjeneste nødvendig. |
-| Serveren deles med hele organisationen som *connector* i claude.ai eller Claude Desktop (Team/Enterprise) | **Google- eller Microsoft-login** (trin 3) | Connectors kræver OAuth-login. Alle kan se connectoren, men kun e-mails på allowlisten (eller i jeres Microsoft-tenant) kommer ind. |
+| Serveren deles med hele organisationen som *connector* i claude.ai eller Claude Desktop (Team/Enterprise) | **Google- eller Microsoft-login** (trin 3A/3B), eller **e-mail og kodeord** (trin 3C) hvis I ikke har nogen af delene | Connectors kræver et login. Alle kan se connectoren, men kun e-mails på allowlisten, i jeres Microsoft-tenant eller i `MCP_USER_*`-listen kommer ind. |
 | Automatiseringer (scripts, n8n, Make) | `MCP_AUTH_TOKEN` uden navn | Logges som `service-token`. |
 
 De to første kan kombineres: nøgler til de få og login til resten.
@@ -224,6 +224,9 @@ beholde ved siden af.
 |---|---|---|
 | **Google login** | I bruger Google Workspace (eller Gmail) | OAuth-klient i Google Cloud + allowlist (`MCP_ALLOWED_DOMAINS`/`MCP_ALLOWED_EMAILS`) |
 | **Microsoft login** | I bruger Microsoft 365 / Entra ID | App-registrering i Entra; dit tenant-ID begrænser til jeres organisation |
+| **E-mail og kodeord** | I har hverken Google Workspace eller Microsoft 365 | Én variabel pr. bruger (`MCP_USER_<NAVN>`), ingen ekstern tjeneste. Serveren har sin egen login-side. |
+
+Vælg én af de tre. Adgangsnøgler kan bruges ved siden af alle tre.
 
 Redirect-URI'en, som Google/Microsoft skal kende, er altid:
 
@@ -273,11 +276,32 @@ https://<dit-domæne>/auth/callback
    Valgfrit: `MCP_ALLOWED_EMAILS` for at begrænse yderligere inden for organisationen.
    Har du kaldt scopet noget andet end `access_as_user`, så sæt `AZURE_API_SCOPE`.
 
+### 3C. E-mail og kodeord (uden Google og Microsoft)
+
+Serveren viser sin egen login-side, når en klient forbinder. Brugerne er variabler, og
+kodeordene gemmes kun som hash.
+
+1. Opret en bruger:
+   ```bash
+   python scripts/new_user.py anna anna@firma.dk --service economic-mcp
+   ```
+   Scriptet viser Annas kodeord én gang og den `railway variable set MCP_USER_ANNA ...`-
+   kommando, der gemmer brugeren. Giv Anna kodeordet gennem en sikker kanal.
+2. Gentag for hver person. Slet variablen for at fjerne en bruger; kør scriptet igen for at
+   give et nyt kodeord.
+3. Første gang Anna forbinder (connector i claude.ai, Claude Desktop, `/mcp` i Claude Code
+   eller `codex mcp login`), åbner login-siden i browseren. Fem forkerte forsøg låser
+   e-mailen i 15 minutter. Login holder 30 dage pr. klient, hvis serveren har en volume
+   (trin 2); ellers til næste deploy.
+
+Sikkerhedsmæssigt er det et hak under Google og Microsoft: der er ingen to-faktor, og
+"glemt kodeord" klares af administratoren. Har I Workspace eller Microsoft 365, så brug dem.
+
 ### Tjek igen
 
 ```bash
 python scripts/doctor.py --public-url https://<dit-domæne>
-railway logs --service economic-mcp     # "Authentication: Google login, allowlist: ..."
+railway logs --service economic-mcp     # "Authentication: Google login, allowlist: ..." eller "e-mail login for 3 user(s)"
 ```
 
 Ved login viser serveren først en kort samtykkeside (hvilken klient der vil forbinde),
@@ -420,6 +444,8 @@ Kører du fra et fork på GitHub: hent ændringerne ind i dit fork; Railway depl
 | Deploy crasher med *"refuses to start"* | Ingen adgangsmetode sat. Tilføj en `MCP_AUTH_TOKEN_<NAVN>`-nøgle eller Google/Microsoft-variabler. |
 | *"Invalid authentication configuration: ..."* i loggen | Beskeden fortæller præcis hvilken variabel der mangler eller er ugyldig. |
 | Login-siden siger *access_denied* | Kontoen er ikke på allowlisten (eller e-mailen er ikke verificeret hos Google). Tilføj adressen/domænet. |
+| E-mail-login: *For mange forsøg* | Fem forkerte kodeord låste e-mailen/IP-adressen i 15 minutter. |
+| E-mail-login: *Login-siden er udløbet* | Linket gælder 10 minutter og én gang. Start forbindelsen igen fra klienten. |
 | Google: *redirect_uri_mismatch* | Redirect-URI'en i Google Cloud skal være præcis `https://<dit-domæne>/auth/callback`. |
 | Microsoft: *AADSTS65001* eller *AADSTS650057* | Scopet mangler under *API permissions*, eller `requestedAccessTokenVersion` er ikke 2. |
 | Klienten bliver ved med at bede om login efter deploy | Ingen volume: login-sessioner nulstilles. Tilføj en volume (trin 2). |

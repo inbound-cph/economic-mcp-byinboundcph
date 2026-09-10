@@ -12,6 +12,11 @@ system that holds financial records.
   PKCE through FastMCP's OAuth proxy. Only e-mail addresses or domains on the allowlist
   (or members of your own Microsoft tenant) are accepted, both when logging in and on
   every request. Rejected accounts get an `access_denied` error.
+- **E-mail + password login** (optional, `MCP_USER_*`) is hosted by the server: PBKDF2-SHA256
+  hashes with 600 000 rounds and constant-time comparison, lockout after five failures per
+  e-mail or IP, single-use short-lived login transactions, PKCE-protected single-use codes,
+  one-hour access tokens, 30-day rotating refresh tokens stored only as hashes. No MFA;
+  prefer Google/Microsoft login when available.
 - **Access keys are personal.** One `MCP_AUTH_TOKEN_<NAME>` per person (32+ characters),
   compared as bearer tokens; the audit log records the name and deleting the variable
   revokes that person. `MCP_AUTH_TOKEN` without a name serves automations. Keys can coexist

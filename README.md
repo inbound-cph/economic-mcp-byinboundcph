@@ -2,8 +2,9 @@
 
 A [FastMCP](https://gofastmcp.com) server that exposes the [Visma e-conomic](https://www.e-conomic.dk/)
 REST API as 73 MCP tools over Streamable HTTP. The server is the gate in front of your
-e-conomic tokens: **one access key per person** or **personal login (Google or Microsoft)**
-with an **allowlist**, plus **read-only mode** and an **audit log**. Runs on Railway in minutes.
+e-conomic tokens: **one access key per person**, **e-mail + password login hosted by the
+server**, or **Google/Microsoft login** with an **allowlist**, plus **read-only mode** and an
+**audit log**. Runs on Railway in minutes.
 
 Built by Ian Rosenfeldt, founder of [INBOUND CPH A/S](https://inboundcph.dk).
 
@@ -71,15 +72,26 @@ variables; the mode is detected automatically.
 | Mode | Variables | Who gets in |
 |---|---|---|
 | **Access keys** (simplest) | `MCP_AUTH_TOKEN_<NAME>` per person, e.g. `MCP_AUTH_TOKEN_CFO`, `MCP_AUTH_TOKEN_ANNA`; `MCP_AUTH_TOKEN` for automations. 32+ characters each, `python scripts/new_key.py <name>` generates one | Whoever holds a key; the audit log shows the name; delete the variable to revoke |
+| **E-mail + password login** | `MCP_USER_<NAME>=email:hash` per person; `python scripts/new_user.py <name> <email>` creates the line and shows the password once | The people listed, via the server's own login page. Works in claude.ai / Claude Desktop connectors without Google or Microsoft |
 | **Google login** | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, plus `MCP_ALLOWED_DOMAINS` and/or `MCP_ALLOWED_EMAILS` (required) | Google accounts on the allowlist with a verified e-mail |
 | **Microsoft login** | `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_TENANT_ID` (optional `AZURE_API_SCOPE`, default `access_as_user`) | Members of your Entra tenant, further narrowed by the optional allowlist |
 
 **Which one?** A small group (the CFO, a finance person, someone in management) using
 Claude Code, Codex, Cursor or Claude Desktop: access keys, one per person, no identity
 provider needed. Sharing the server with a whole organisation through claude.ai / Claude
-Desktop *connectors* (Team and Enterprise plans): those connectors require OAuth, so use
-Google or Microsoft login; everybody can see the connector, but only the e-mails on the
-allowlist (or your Microsoft tenant) get in. Keys and login can be combined.
+Desktop *connectors* (Team and Enterprise plans): those connectors require an OAuth login.
+Use Google or Microsoft login if you have Workspace or Microsoft 365 (everybody can see the
+connector, but only the e-mails on the allowlist or in your tenant get in), or **e-mail +
+password login** hosted by the server if you have neither. Keys can be combined with any
+login; the three login methods are mutually exclusive.
+
+E-mail + password login in detail: the server hosts a small login page. Passwords are stored
+only as PBKDF2-SHA256 hashes (600 000 rounds) in the `MCP_USER_*` variables, compared in
+constant time; five failed attempts per e-mail or IP lock login for 15 minutes; each login
+page belongs to a single short-lived OAuth transaction; authorization codes are single-use
+with PKCE; access tokens live one hour, refresh tokens 30 days with rotation, stored as
+hashes under `FASTMCP_HOME` so logins survive deploys. There is no MFA and no self-service
+password reset: the admin runs `new_user.py` again. Prefer Google/Microsoft when you have them.
 
 Google and Microsoft login use OAuth 2.1 with PKCE through FastMCP's OAuth proxy: MCP
 clients discover the server's OAuth metadata, register dynamically, the user sees a short
@@ -125,6 +137,7 @@ then listens on `127.0.0.1` and logs a warning.
 | `MCP_ALLOWED_EMAILS` / `MCP_ALLOWED_DOMAINS` | | Comma-separated allowlist |
 | `MCP_AUTH_TOKEN_<NAME>` | | One access key per person (32+ chars); `<NAME>` becomes the identity in the audit log |
 | `MCP_AUTH_TOKEN` | | Access key for automations (identity `service-token`) |
+| `MCP_USER_<NAME>` | | `email:pbkdf2_sha256$…` for e-mail + password login (create with `scripts/new_user.py`) |
 | `MCP_PUBLIC_URL` | from `RAILWAY_PUBLIC_DOMAIN` | Public https URL, needed for login |
 | `MCP_READ_ONLY` | `false` | Hide write tools |
 | `MCP_ALLOW_UNAUTHENTICATED` | `false` | Local testing only |
@@ -277,6 +290,8 @@ mode, tool annotations, the audit log and the fail-closed startup.
 - **Server exits with "refuses to start"**: no auth configured. Set a personal key (`MCP_AUTH_TOKEN_<NAME>`) or the Google/Microsoft variables.
 - **"Invalid authentication configuration: …"**: the message names the missing or invalid variable.
 - **`access_denied` at login**: the account is not on the allowlist (Google also requires a verified e-mail).
+- **E-mail login says "For mange forsøg"**: five wrong passwords locked that e-mail/IP for 15 minutes.
+- **E-mail login page says the page expired**: the login link is valid for 10 minutes and once; reconnect from the client.
 - **Google `redirect_uri_mismatch`**: the redirect URI must be exactly `https://<domain>/auth/callback`.
 - **Microsoft `AADSTS65001` / `AADSTS650057`**: add the scope under API permissions and set `requestedAccessTokenVersion` to 2.
 - **Clients keep asking to log in after deploys**: attach a Railway volume.

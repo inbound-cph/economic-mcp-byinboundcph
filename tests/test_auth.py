@@ -117,8 +117,8 @@ def test_resolve_settings_selects_mode_from_environment():
 
     combined = auth.resolve_auth_settings({**GOOGLE_ENV, "MCP_AUTH_TOKEN": TOKEN})
     assert combined.mode == "google"
-    assert combined.service_token == TOKEN
-    assert "access key" in combined.summary()
+    assert combined.access_keys == {"service-token": TOKEN}
+    assert "access keys for service-token" in combined.summary()
 
 
 def test_public_url_defaults_to_railway_domain_and_strips_trailing_slash():
@@ -174,6 +174,32 @@ def test_token_provider_accepts_only_the_configured_key():
     assert auth.build_auth_provider(auth.resolve_auth_settings({})) is None
 
 
+def test_personal_access_keys_identify_each_person():
+    env = {"MCP_AUTH_TOKEN_CFO": "c" * 40, "MCP_AUTH_TOKEN_Anna": "a" * 40, "MCP_AUTH_TOKEN": TOKEN, "MCP_AUTH_TOKEN_EMPTY": " "}
+    settings = auth.resolve_auth_settings(env)
+    assert settings.mode == "token"
+    assert set(settings.access_keys) == {"cfo", "anna", "service-token"}
+    assert settings.summary() == "access keys for anna, cfo, service-token"
+    provider = auth.build_auth_provider(settings)
+    assert run(provider.verify_token("c" * 40)).client_id == "cfo"
+    assert run(provider.verify_token("a" * 40)).client_id == "anna"
+    assert run(provider.verify_token(TOKEN)).client_id == "service-token"
+    assert run(provider.verify_token("x" * 40)) is None
+
+
+@pytest.mark.parametrize(
+    "env, message",
+    [
+        ({"MCP_AUTH_TOKEN_CFO": "short"}, "MCP_AUTH_TOKEN_CFO must be at least 32"),
+        ({"MCP_AUTH_TOKEN_CFO": "c" * 40, "MCP_AUTH_TOKEN_CEO": "c" * 40}, "same key"),
+        ({"MCP_AUTH_TOKEN_Bad Name": "c" * 40}, "may only contain"),
+    ],
+)
+def test_personal_access_keys_are_validated(env, message):
+    with pytest.raises(auth.AuthConfigError, match=message):
+        auth.resolve_auth_settings(env)
+
+
 def test_google_provider_enforces_allowlist_at_login_and_on_requests():
     provider = auth.build_auth_provider(auth.resolve_auth_settings(GOOGLE_ENV))
     assert isinstance(provider, auth.GuardedGoogleProvider)
@@ -218,9 +244,10 @@ def test_microsoft_provider_trusts_tenant_unless_allowlist_is_set():
 
 
 def test_login_plus_service_token_uses_multi_auth():
-    settings = auth.resolve_auth_settings({**AZURE_ENV, "MCP_AUTH_TOKEN": TOKEN})
+    settings = auth.resolve_auth_settings({**AZURE_ENV, "MCP_AUTH_TOKEN": TOKEN, "MCP_AUTH_TOKEN_CFO": "c" * 40})
     provider = auth.build_auth_provider(settings)
     assert isinstance(provider, MultiAuth)
+    assert run(provider.verify_token("c" * 40)).client_id == "cfo"
     accepted = run(provider.verify_token(TOKEN))
     assert accepted is not None
     assert accepted.client_id == auth.SERVICE_TOKEN_CLIENT_ID
@@ -355,7 +382,7 @@ def test_server_refuses_to_start_without_authentication(tmp_path):
 
 
 def test_server_starts_with_access_key_and_read_only(tmp_path):
-    result = _import_server(_startup_env(tmp_path, MCP_AUTH_TOKEN=TOKEN, MCP_READ_ONLY="true"))
+    result = _import_server(_startup_env(tmp_path, MCP_AUTH_TOKEN_CFO=TOKEN, MCP_READ_ONLY="true"))
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == "token True"
 

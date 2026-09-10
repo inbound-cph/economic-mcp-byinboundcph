@@ -95,9 +95,9 @@ exactly what to click and wait for them.
      Google Workspace → Google login with audience *Internal* (whole organisation allowed,
      narrowed by the allowlist). Microsoft 365 → Microsoft login (tenant-bounded). Only
      private Gmail accounts → Google login with audience *External* in testing mode, adding
-     each user under *Audience → Test users* (up to 100, no verification needed). Neither →
-     access key only; explain that the key must then be shared manually and rotated if it
-     leaks, and that personal login can be added later.
+     each user under *Audience → Test users* (up to 100, no verification needed). No
+     identity provider, or just a few named people → personal access keys are the simplest
+     and fully sufficient; personal login can be added later.
    - **Client**: ask whether they will use Claude Code, claude.ai/Claude Desktop, Codex or
      something else, so step 8 fits.
 4. **e-conomic tokens.** Explain the three browser steps from `GUIDE.md` step 1
@@ -108,7 +108,8 @@ exactly what to click and wait for them.
    railway init --name economic-mcp
    railway add --service economic-mcp --variables "MCP_READ_ONLY=true" \
      --variables "ECONOMIC_APP_SECRET_TOKEN=demo" --variables "ECONOMIC_AGREEMENT_GRANT_TOKEN=demo"
-   openssl rand -hex 32 | railway variable set MCP_AUTH_TOKEN --stdin --service economic-mcp --skip-deploys
+   python scripts/new_key.py <name> --service economic-mcp   # prints the key once + the store command
+   # run the printed `railway variable set MCP_AUTH_TOKEN_<NAME> --stdin` command
    railway domain --service economic-mcp
    railway up --detach --service economic-mcp
    railway logs --service economic-mcp
@@ -120,10 +121,16 @@ exactly what to click and wait for them.
    If the `claude` CLI crashes with a Node.js TypeError, the user's Node is too new for the
    npm-installed CLI; the Claude desktop app is unaffected, and `nvm use 22` or reinstalling
    Claude Code fixes the CLI. Configure the MCP server through the app or `.mcp.json` meanwhile.
-   The first deploy always uses an access key so the server can start; personal login is
-   added afterwards because the identity provider needs the public URL.
-6. **Personal login** (GUIDE.md step 3). Recommend Google login for Google Workspace
-   organisations and Microsoft login for Microsoft 365 organisations. The redirect URI to
+   The first deploy uses the user's own personal access key so the server can start.
+   Access model: the MCP server is the gate in front of the e-conomic tokens. For a small
+   group (CFO, finance, management) create one key per person with
+   `python scripts/new_key.py <name>`; the audit log shows the name and deleting the
+   variable revokes access. Only when the server is shared with a whole organisation as a
+   claude.ai / Claude Desktop connector is Google/Microsoft login needed (connectors require
+   OAuth); the allowlist then decides who gets in. Explain this choice to the user.
+6. **Personal login** (GUIDE.md step 3), only if the user wants organisation-wide sharing
+   through claude.ai connectors or prefers browser login. Recommend Google login for Google
+   Workspace organisations and Microsoft login for Microsoft 365 organisations. The redirect URI to
    register is `https://<domain>/auth/callback`. Google login requires
    `MCP_ALLOWED_DOMAINS` and/or `MCP_ALLOWED_EMAILS`. Set the variables with
    `railway variable set` (secrets via `--stdin`). Railway redeploys automatically.
@@ -186,6 +193,7 @@ exactly what to click and wait for them.
 | `auth.py` | Login modes, allowlist, access key, audit middleware |
 | `scripts/doctor.py` | Setup and deployment checker |
 | `scripts/install_skills.py` | Copies or links the skills into ~/.claude/skills and ~/.agents/skills |
+| `scripts/new_key.py` | Generates a personal access key and prints where to store it |
 | `skills/` | Seven Danish skills (SKILL.md each); `.claude-plugin/` makes the repo a Claude Code plugin marketplace; `.agents/skills` symlinks here for Codex |
 | `tests/` | Pytest suite (in-memory MCP client, mocked e-conomic API) |
 | `GUIDE.md` | Danish step-by-step guide for humans |
@@ -202,7 +210,8 @@ exactly what to click and wait for them.
 | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | Google login |
 | `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_TENANT_ID`, `AZURE_API_SCOPE` | Microsoft login |
 | `MCP_ALLOWED_EMAILS`, `MCP_ALLOWED_DOMAINS` | Who may log in (required for Google) |
-| `MCP_AUTH_TOKEN` | Access key, minimum 32 characters |
+| `MCP_AUTH_TOKEN_<NAME>` | One access key per person (32+ chars); `<NAME>` is the identity in the audit log |
+| `MCP_AUTH_TOKEN` | Access key for automations (identity `service-token`) |
 | `MCP_PUBLIC_URL` | Public https URL; derived from `RAILWAY_PUBLIC_DOMAIN` on Railway |
 | `MCP_READ_ONLY` | `true` hides all write tools |
 | `MCP_ALLOW_UNAUTHENTICATED` | Local testing only |

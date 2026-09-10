@@ -7,13 +7,14 @@ The server picks its protection automatically from environment variables:
                     + MCP_ALLOWED_EMAILS and/or MCP_ALLOWED_DOMAINS (required)
   Microsoft login   AZURE_CLIENT_ID + AZURE_CLIENT_SECRET + AZURE_TENANT_ID
                     (+ allowlist, required when the tenant is not your own)
-  Access key        MCP_AUTH_TOKEN (static bearer token, at least 32 characters)
+  Access keys       MCP_AUTH_TOKEN_<NAME> per person (e.g. MCP_AUTH_TOKEN_CFO) and/or
+                    MCP_AUTH_TOKEN for automations; each at least 32 characters
 
-Google and Microsoft login give every user a personal browser login (OAuth 2.1 with
-PKCE) through FastMCP's OAuth proxy. Only accounts on the allowlist (or inside the
-Microsoft tenant) are accepted, both when logging in and on every request. An access
-key can be combined with either login so automations keep a fixed credential while
-people sign in with their work account.
+Access keys are the simplest gate for a small team: one variable per person, the audit
+log shows the name, and removing the variable removes the access. Google and Microsoft
+login give every user a personal browser login (OAuth 2.1 with PKCE) through FastMCP's
+OAuth proxy; only accounts on the allowlist (or inside the Microsoft tenant) are
+accepted, both when logging in and on every request. Keys and login can be combined.
 
 Every tool call is written to the audit log with the identity of the caller.
 """
@@ -41,6 +42,8 @@ audit_logger = logging.getLogger("economic-mcp.audit")
 MIN_SECRET_LENGTH = 32
 SERVICE_SCOPE = "economic:access"
 SERVICE_TOKEN_CLIENT_ID = "service-token"
+ACCESS_KEY_PREFIX = "MCP_AUTH_TOKEN_"
+_KEY_NAME_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
 GOOGLE_SCOPES = ["openid", "email"]
 DEFAULT_AZURE_SCOPE = "access_as_user"
 ACCESS_DENIED_MESSAGE = (
@@ -221,7 +224,7 @@ class AuthSettings:
     mode: str  # "google" | "microsoft" | "token" | "none"
     public_url: Optional[str] = None
     allowlist: Allowlist = field(default_factory=Allowlist)
-    service_token: Optional[str] = None
+    access_keys: dict[str, str] = field(default_factory=dict)  # name -> key
     jwt_signing_key: Optional[str] = None
     allowed_client_redirect_uris: Optional[tuple[str, ...]] = None
     google_client_id: Optional[str] = None
@@ -243,12 +246,13 @@ class AuthSettings:
     def summary(self) -> str:
         if self.mode == "none":
             return "NONE (unprotected)"
+        keys = "access keys for " + ", ".join(sorted(self.access_keys)) if self.access_keys else ""
         if self.mode == "token":
-            return "access key (MCP_AUTH_TOKEN)"
+            return keys
         label = "Google login" if self.mode == "google" else f"Microsoft login (tenant {self.azure_tenant_id})"
         text = f"{label}, allowlist: {self.allowlist.summary()}"
-        if self.service_token:
-            text += ", plus access key for automations"
+        if keys:
+            text += f", plus {keys}"
         return text
 
 
@@ -261,11 +265,7 @@ def resolve_auth_settings(env: Mapping[str, str]) -> AuthSettings:
     public_url = _public_url_from_env(env)
     allowlist = Allowlist.from_env(env)
 
-    service_token = get("MCP_AUTH_TOKEN") or None
-    if service_token and len(service_token) < MIN_SECRET_LENGTH:
-        raise AuthConfigError(
-            f"MCP_AUTH_TOKEN must be at least {MIN_SECRET_LENGTH} characters (generate one with: openssl rand -hex 32)"
-        )
+    access_keys = _collect_access_keys(env)
     jwt_signing_key = get("MCP_JWT_SIGNING_KEY") or None
     if jwt_signing_key and len(jwt_signing_key) < MIN_SECRET_LENGTH:
         raise AuthConfigError(f"MCP_JWT_SIGNING_KEY must be at least {MIN_SECRET_LENGTH} characters")
@@ -279,7 +279,7 @@ def resolve_auth_settings(env: Mapping[str, str]) -> AuthSettings:
     common = dict(
         public_url=public_url,
         allowlist=allowlist,
-        service_token=service_token,
+        access_keys=access_keys,
         jwt_signing_key=jwt_signing_key,
         allowed_client_redirect_uris=redirect_uris,
     )
@@ -330,7 +330,7 @@ def resolve_auth_settings(env: Mapping[str, str]) -> AuthSettings:
             **common,
         )
 
-    if service_token:
+    if access_keys:
         return AuthSettings(mode="token", **common)
 
     if not allowlist.is_empty:
@@ -345,9 +345,37 @@ def resolve_auth_settings(env: Mapping[str, str]) -> AuthSettings:
 # ---------------------------------------------------------------------------
 
 
-def _service_token_verifier(token: str, scopes: list[str], required_scopes: Optional[list[str]]) -> StaticTokenVerifier:
+def _collect_access_keys(env: Mapping[str, str]) -> dict[str, str]:
+    """MCP_AUTH_TOKEN (automations) and MCP_AUTH_TOKEN_<NAME> (one per person) -> {name: key}."""
+    keys: dict[str, str] = {}
+    for variable in sorted(env):
+        if variable == "MCP_AUTH_TOKEN":
+            name = SERVICE_TOKEN_CLIENT_ID
+        elif variable.startswith(ACCESS_KEY_PREFIX):
+            name = variable[len(ACCESS_KEY_PREFIX):].lower()
+            if not _KEY_NAME_PATTERN.match(name):
+                raise AuthConfigError(
+                    f"{variable}: the name after {ACCESS_KEY_PREFIX} may only contain letters, digits, '-' and '_'"
+                )
+        else:
+            continue
+        value = (env.get(variable) or "").strip()
+        if not value:
+            continue
+        if len(value) < MIN_SECRET_LENGTH:
+            raise AuthConfigError(
+                f"{variable} must be at least {MIN_SECRET_LENGTH} characters (generate one with: openssl rand -hex 32)"
+            )
+        if value in keys.values():
+            other = next(n for n, k in keys.items() if k == value)
+            raise AuthConfigError(f"{variable} uses the same key as '{other}'; every person needs their own key")
+        keys[name] = value
+    return keys
+
+
+def _access_key_verifier(keys: Mapping[str, str], scopes: list[str], required_scopes: Optional[list[str]]) -> StaticTokenVerifier:
     return StaticTokenVerifier(
-        tokens={token: {"client_id": SERVICE_TOKEN_CLIENT_ID, "scopes": scopes}},
+        tokens={key: {"client_id": name, "scopes": list(scopes)} for name, key in keys.items()},
         required_scopes=required_scopes,
     )
 
@@ -357,8 +385,8 @@ def build_auth_provider(settings: AuthSettings) -> Optional[AuthProvider]:
     if settings.mode == "none":
         return None
     if settings.mode == "token":
-        assert settings.service_token
-        return _service_token_verifier(settings.service_token, [SERVICE_SCOPE], required_scopes=[SERVICE_SCOPE])
+        assert settings.access_keys
+        return _access_key_verifier(settings.access_keys, [SERVICE_SCOPE], required_scopes=[SERVICE_SCOPE])
 
     redirect_uris = list(settings.allowed_client_redirect_uris) if settings.allowed_client_redirect_uris else None
     if settings.mode == "google":
@@ -387,11 +415,11 @@ def build_auth_provider(settings: AuthSettings) -> Optional[AuthProvider]:
         raise AuthConfigError(f"Unknown authentication mode: {settings.mode}")
 
     oauth_provider: AuthProvider = provider  # type: ignore[assignment]
-    if settings.service_token:
-        # The access key must carry the same scopes the OAuth login grants, so the
-        # server-wide scope check accepts it as well.
-        verifier = _service_token_verifier(
-            settings.service_token,
+    if settings.access_keys:
+        # Access keys must carry the same scopes the OAuth login grants, so the
+        # server-wide scope check accepts them as well.
+        verifier = _access_key_verifier(
+            settings.access_keys,
             [*(oauth_provider.required_scopes or []), SERVICE_SCOPE],
             required_scopes=None,
         )
@@ -405,7 +433,7 @@ def build_auth_provider(settings: AuthSettings) -> Optional[AuthProvider]:
 
 
 def current_identity() -> str:
-    """Who is calling: e-mail for logged-in users, 'service-token' for the access key."""
+    """Who is calling: e-mail for logged-in users, the key name (e.g. 'cfo') for access keys."""
     try:
         token = get_access_token()
     except Exception:  # pragma: no cover - defensive, depends on transport internals

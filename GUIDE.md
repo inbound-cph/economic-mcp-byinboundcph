@@ -64,7 +64,7 @@ gennem resten. Her er samme liste til dig:
 | **Git**, **Python 3.10+** og **Railway CLI** | Assistenten installerer dem. Mac: `xcode-select --install` og `brew install python railway`. Windows: `winget install Git.Git Python.Python.3.12` og `npm i -g @railway/cli`. Linux: `sudo apt install git python3 python3-venv` og `npm i -g @railway/cli`. |
 | **Railway-konto** (hosting) | `railway login` opretter kontoen i browseren, hvis du ikke har en (log ind med GitHub eller e-mail). Deploy kræver Hobby-planen: et lille månedligt beløb, der inkluderer forbrug, se [railway.com/pricing](https://railway.com/pricing). Du vælger planen i Railway-dashboardet første gang. |
 | **e-conomic-regnskab med API-adgang** | Intet regnskab endnu: opret en gratis prøveperiode på [e-conomic.dk](https://www.e-conomic.dk) eller test med `demo`-tokens (kræver intet). Har du et regnskab, er API-adgang med i de fleste pakker; bliver appen afvist med en besked om API/integrationer, så bed e-conomic support om at slå API-adgang til. Kun regnskabets ejer eller en administrator kan godkende appen i trin 1, så hav den person ved tastaturet. |
-| **Konto til personligt login** (kan tilføjes senere) | Bruger I Google Workspace: Google-login med målgruppe *Internal*. Bruger I Microsoft 365: Microsoft-login. Har I kun private Gmail-konti: Google-login med målgruppe *External* i testtilstand, hvor hver bruger tilføjes under *Audience → Test users* (op til 100). Ingen af delene: brug adgangsnøgle alene og del den manuelt; personligt login kan slås til senere. |
+| **Konto til personligt login** (valgfrit) | Kun nødvendigt, hvis serveren skal deles som connector med hele organisationen via claude.ai. Bruger I Google Workspace: Google-login med målgruppe *Internal*. Bruger I Microsoft 365: Microsoft-login. Har I kun private Gmail-konti: Google-login med målgruppe *External* i testtilstand (brugere tilføjes under *Audience → Test users*). Ellers klarer personlige adgangsnøgler det hele. |
 
 ---
 
@@ -108,9 +108,11 @@ indtast dem direkte i Railway (Variables) eller i din egen terminal.
 
 ## Trin 2: Deploy på Railway
 
-Serveren starter kun, hvis der er sat en login-metode. Første deploy bruger en
-**adgangsnøgle** (en lang tilfældig streng), fordi det virker med det samme. I trin 3
-tilføjer du personligt login, når du kender serverens adresse.
+Serveren starter kun, hvis der er sat en adgangsmetode. Den simpleste er **personlige
+adgangsnøgler**: én variabel pr. person (`MCP_AUTH_TOKEN_CFO`, `MCP_AUTH_TOKEN_ANNA`), så
+loggen viser hvem der gjorde hvad, og en person fjernes ved at slette variablen. Første
+deploy laver du med din egen nøgle. Google- eller Microsoft-login (trin 3) er valgfrit og
+mest relevant, når serveren skal deles med hele organisationen via claude.ai.
 
 ### 2A. Med Railway CLI fra din klon (anbefalet, kan køres af agenten)
 
@@ -127,8 +129,9 @@ railway add --service economic-mcp \
   --variables "ECONOMIC_APP_SECRET_TOKEN=demo" \
   --variables "ECONOMIC_AGREEMENT_GRANT_TOKEN=demo"
 
-# Adgangsnøgle: genereres og gemmes direkte i Railway uden at blive vist
-openssl rand -hex 32 | railway variable set MCP_AUTH_TOKEN --stdin --service economic-mcp --skip-deploys
+# Din egen adgangsnøgle: scriptet viser nøglen én gang og den kommando, der gemmer den
+python scripts/new_key.py cfo --service economic-mcp      # brug dit eget navn i stedet for cfo
+# ...kør derefter den viste "railway variable set MCP_AUTH_TOKEN_CFO --stdin"-kommando
 
 railway domain --service economic-mcp  # giver dig https://economic-mcp-xxxx.up.railway.app
 railway up --detach --service economic-mcp
@@ -156,7 +159,7 @@ når variabler ændres.
 2. På railway.com: **New Project → Deploy from GitHub repo** → vælg repoet.
 3. Åbn servicen → **Variables** → tilføj:
    `ECONOMIC_APP_SECRET_TOKEN`, `ECONOMIC_AGREEMENT_GRANT_TOKEN`, `MCP_READ_ONLY=true`
-   og `MCP_AUTH_TOKEN` (32+ tilfældige tegn, fx fra `openssl rand -hex 32`).
+   og `MCP_AUTH_TOKEN_<DITNAVN>` (32+ tilfældige tegn, fx fra `python scripts/new_key.py <navn>`).
 4. **Settings → Networking → Generate Domain**.
 5. Vent på deploy. Fordelen ved denne vej: Railway deployer automatisk, når du
    opdaterer dit fork.
@@ -173,6 +176,14 @@ python scripts/doctor.py --public-url https://<dit-domæne>
 `doctor.py` bekræfter, at `/mcp` afviser ukendte kald, og udskriver de præcise
 kommandoer til at forbinde dine klienter.
 
+### Flere personer
+
+Kør `python scripts/new_key.py anna` for hver person, der skal have adgang, og gem
+variablen som scriptet viser. Giv personen nøglen gennem en sikker kanal (password
+manager, ikke e-mail). Skal en person ikke længere have adgang, så slet variablen
+`MCP_AUTH_TOKEN_ANNA` i Railway; serveren genstarter selv. Til automatiseringer (scripts,
+n8n og lignende) bruges `MCP_AUTH_TOKEN` uden navn.
+
 ### Valgfrit men anbefalet: en volume til login-sessioner
 
 Med personligt login gemmer serveren krypterede login-sessioner på disk. Uden en
@@ -186,18 +197,33 @@ Serveren opdager selv volumen (via `RAILWAY_VOLUME_MOUNT_PATH`). Ingen variabler
 
 ---
 
-## Trin 3: Personligt login (anbefalet)
+## Hvem har adgang? Sådan virker porten
+
+MCP-serveren er porten foran dit regnskab. e-conomic-tokens ligger kun på serveren, og
+ingen klient kommer igennem uden enten en personlig adgangsnøgle eller et godkendt login.
+Hvert kald logges med personens navn eller e-mail.
+
+| Situation | Vælg | Sådan styres adgangen |
+|---|---|---|
+| 2–10 navngivne personer (CFO, økonomi, direktion) med Claude Code, Codex, Cursor eller Claude Desktop | **Personlige adgangsnøgler** (trin 2) | Én variabel pr. person. Slet variablen for at fjerne adgang. Ingen login-tjeneste nødvendig. |
+| Serveren deles med hele organisationen som *connector* i claude.ai eller Claude Desktop (Team/Enterprise) | **Google- eller Microsoft-login** (trin 3) | Connectors kræver OAuth-login. Alle kan se connectoren, men kun e-mails på allowlisten (eller i jeres Microsoft-tenant) kommer ind. |
+| Automatiseringer (scripts, n8n, Make) | `MCP_AUTH_TOKEN` uden navn | Logges som `service-token`. |
+
+De to første kan kombineres: nøgler til de få og login til resten.
+
+---
+
+## Trin 3: Personligt login (valgfrit)
 
 Med personligt login logger hver bruger ind i browseren med sin arbejdskonto, første
 gang klienten forbinder. Kun konti på din allowlist (eller i din Microsoft-organisation)
-kommer igennem, både ved login og ved hvert efterfølgende kald. Adgangsnøglen kan du
-beholde til automatiseringer eller slette.
+kommer igennem, både ved login og ved hvert efterfølgende kald. Adgangsnøglerne kan du
+beholde ved siden af.
 
 | Metode | Vælg den hvis | Krav |
 |---|---|---|
 | **Google login** | I bruger Google Workspace (eller Gmail) | OAuth-klient i Google Cloud + allowlist (`MCP_ALLOWED_DOMAINS`/`MCP_ALLOWED_EMAILS`) |
 | **Microsoft login** | I bruger Microsoft 365 / Entra ID | App-registrering i Entra; dit tenant-ID begrænser til jeres organisation |
-| **Kun adgangsnøgle** | Én bruger eller ren automatisering | `MCP_AUTH_TOKEN`, som du deler manuelt |
 
 Redirect-URI'en, som Google/Microsoft skal kende, er altid:
 
@@ -268,7 +294,7 @@ Serverens MCP-adresse er `https://<dit-domæne>/mcp`.
 claude mcp add --transport http --scope user economic https://<dit-domæne>/mcp
 ```
 Kør derefter `/mcp` i Claude Code og vælg *economic* for at logge ind i browseren.
-Bruger du kun adgangsnøgle: tilføj `--header "Authorization: Bearer <MCP_AUTH_TOKEN>"`.
+Bruger du adgangsnøgle: tilføj `--header "Authorization: Bearer <din nøgle>"`.
 
 **claude.ai og Claude Desktop**
 Settings → **Connectors** → **Add custom connector** → indsæt adressen → Add → **Connect**
@@ -348,7 +374,7 @@ Skriveskills viser altid et forslag først og bogfører aldrig uden et udtrykkel
 
 - [ ] `MCP_ALLOWED_DOMAINS`/`MCP_ALLOWED_EMAILS` indeholder kun de personer, der skal have adgang.
 - [ ] e-conomic-appen har den mindste rolle, der dækker behovet.
-- [ ] Adgangsnøglen (hvis du bruger en) er 32+ tilfældige tegn og er kun delt med dem, der skal bruge den.
+- [ ] Hver person har sin egen adgangsnøgle (`MCP_AUTH_TOKEN_<NAVN>`), og nøgler til folk, der er stoppet, er slettet.
 - [ ] `MCP_READ_ONLY=true` indtil skriveflowet er testet.
 - [ ] `.env` er ikke i git (er dækket af `.gitignore`).
 - [ ] Der er en Railway-volume, så login-sessioner ikke nulstilles ved deploy.
@@ -366,7 +392,7 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Sæt i `.env` enten `MCP_AUTH_TOKEN` (32+ tegn) eller, kun til leg på din egen maskine,
+Sæt i `.env` enten en adgangsnøgle (`MCP_AUTH_TOKEN_<DITNAVN>`, 32+ tegn) eller, kun til leg på din egen maskine,
 `MCP_ALLOW_UNAUTHENTICATED=true` (serveren lytter så kun på 127.0.0.1). Start:
 
 ```bash
@@ -391,7 +417,7 @@ Kører du fra et fork på GitHub: hent ændringerne ind i dit fork; Railway depl
 
 | Symptom | Årsag og løsning |
 |---|---|
-| Deploy crasher med *"refuses to start"* | Ingen login-metode sat. Tilføj `MCP_AUTH_TOKEN` eller Google/Microsoft-variabler. |
+| Deploy crasher med *"refuses to start"* | Ingen adgangsmetode sat. Tilføj en `MCP_AUTH_TOKEN_<NAVN>`-nøgle eller Google/Microsoft-variabler. |
 | *"Invalid authentication configuration: ..."* i loggen | Beskeden fortæller præcis hvilken variabel der mangler eller er ugyldig. |
 | Login-siden siger *access_denied* | Kontoen er ikke på allowlisten (eller e-mailen er ikke verificeret hos Google). Tilføj adressen/domænet. |
 | Google: *redirect_uri_mismatch* | Redirect-URI'en i Google Cloud skal være præcis `https://<dit-domæne>/auth/callback`. |

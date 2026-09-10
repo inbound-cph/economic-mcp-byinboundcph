@@ -12,8 +12,10 @@ system that holds financial records.
   PKCE through FastMCP's OAuth proxy. Only e-mail addresses or domains on the allowlist
   (or members of your own Microsoft tenant) are accepted, both when logging in and on
   every request. Rejected accounts get an `access_denied` error.
-- **Access keys are at least 32 characters** and are compared as bearer tokens. An access
-  key can coexist with a login so automations do not need a personal account.
+- **Access keys are personal.** One `MCP_AUTH_TOKEN_<NAME>` per person (32+ characters),
+  compared as bearer tokens; the audit log records the name and deleting the variable
+  revokes that person. `MCP_AUTH_TOKEN` without a name serves automations. Keys can coexist
+  with a login.
 - **Read-only mode** (`MCP_READ_ONLY=true`) hides every tool that creates, changes, books
   or deletes anything and limits the generic API tool to `GET`.
 - **Audit log.** Every tool call is logged with the caller's identity, the tool name,

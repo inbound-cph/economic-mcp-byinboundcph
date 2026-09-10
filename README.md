@@ -1,9 +1,9 @@
 # e-conomic MCP Server by InboundCPH
 
 A [FastMCP](https://gofastmcp.com) server that exposes the [Visma e-conomic](https://www.e-conomic.dk/)
-REST API as 73 MCP tools over Streamable HTTP, protected by **personal login (Google or
-Microsoft)** and/or an **access key**, with an **allowlist**, **read-only mode** and an
-**audit log**. Runs on Railway in minutes.
+REST API as 73 MCP tools over Streamable HTTP. The server is the gate in front of your
+e-conomic tokens: **one access key per person** or **personal login (Google or Microsoft)**
+with an **allowlist**, plus **read-only mode** and an **audit log**. Runs on Railway in minutes.
 
 Built by Ian Rosenfeldt, founder of [INBOUND CPH A/S](https://inboundcph.dk).
 
@@ -36,14 +36,14 @@ railway login
 railway init --name economic-mcp
 railway add --service economic-mcp --variables "MCP_READ_ONLY=true" \
   --variables "ECONOMIC_APP_SECRET_TOKEN=demo" --variables "ECONOMIC_AGREEMENT_GRANT_TOKEN=demo"
-openssl rand -hex 32 | railway variable set MCP_AUTH_TOKEN --stdin --service economic-mcp --skip-deploys
+python scripts/new_key.py cfo --service economic-mcp   # prints a key once + the command to store it
 railway domain --service economic-mcp
 railway up --detach --service economic-mcp
 python scripts/doctor.py --public-url https://<your-domain>
 ```
 
-Then replace the `demo` tokens with your own (GUIDE.md step 1), add personal login
-(step 3) and connect your client (step 4).
+Then replace the `demo` tokens with your own (GUIDE.md step 1), add one key per person or
+personal login (step 3) and connect your client (step 4).
 
 ## Features (73 tools)
 
@@ -70,18 +70,25 @@ variables; the mode is detected automatically.
 
 | Mode | Variables | Who gets in |
 |---|---|---|
+| **Access keys** (simplest) | `MCP_AUTH_TOKEN_<NAME>` per person, e.g. `MCP_AUTH_TOKEN_CFO`, `MCP_AUTH_TOKEN_ANNA`; `MCP_AUTH_TOKEN` for automations. 32+ characters each, `python scripts/new_key.py <name>` generates one | Whoever holds a key; the audit log shows the name; delete the variable to revoke |
 | **Google login** | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, plus `MCP_ALLOWED_DOMAINS` and/or `MCP_ALLOWED_EMAILS` (required) | Google accounts on the allowlist with a verified e-mail |
 | **Microsoft login** | `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_TENANT_ID` (optional `AZURE_API_SCOPE`, default `access_as_user`) | Members of your Entra tenant, further narrowed by the optional allowlist |
-| **Access key** | `MCP_AUTH_TOKEN` (32+ characters, `openssl rand -hex 32`) | Anyone presenting `Authorization: Bearer <key>` |
+
+**Which one?** A small group (the CFO, a finance person, someone in management) using
+Claude Code, Codex, Cursor or Claude Desktop: access keys, one per person, no identity
+provider needed. Sharing the server with a whole organisation through claude.ai / Claude
+Desktop *connectors* (Team and Enterprise plans): those connectors require OAuth, so use
+Google or Microsoft login; everybody can see the connector, but only the e-mails on the
+allowlist (or your Microsoft tenant) get in. Keys and login can be combined.
 
 Google and Microsoft login use OAuth 2.1 with PKCE through FastMCP's OAuth proxy: MCP
 clients discover the server's OAuth metadata, register dynamically, the user sees a short
 consent page and then the Google/Microsoft login. The allowlist is enforced **when the
 login completes** (rejected accounts receive `access_denied`) **and on every request**.
 
-An access key can be combined with either login so automations keep a fixed credential
-while people sign in personally. `MCP_ALLOWED_*` without a login mode is rejected as a
-misconfiguration.
+Access keys can be combined with either login, for example keys for automations and a
+few power users while everyone else signs in personally. `MCP_ALLOWED_*` without a login
+mode is rejected as a misconfiguration.
 
 Login needs the server's public URL: set `MCP_PUBLIC_URL=https://…`. On Railway it is
 derived from `RAILWAY_PUBLIC_DOMAIN` automatically. Register
@@ -103,8 +110,8 @@ then listens on `127.0.0.1` and logs a warning.
 - `MCP_READ_ONLY=true` hides every tool that creates, changes, books or deletes anything
   (15 tools) and limits `economic_api_request` to `GET`. Start with it on.
 - Every tool call is logged as `tool=… user=… status=… duration_ms=…` on the
-  `economic-mcp.audit` logger. `user` is the e-mail of the logged-in person or
-  `service-token` for the access key. Arguments and data are never logged.
+  `economic-mcp.audit` logger. `user` is the e-mail of the logged-in person, the key name
+  (`cfo`, `anna`) for personal access keys, or `service-token`. Arguments and data are never logged.
 
 ## Configuration reference
 
@@ -116,7 +123,8 @@ then listens on `127.0.0.1` and logs a warning.
 | `AZURE_CLIENT_ID` / `AZURE_CLIENT_SECRET` / `AZURE_TENANT_ID` | | Microsoft login |
 | `AZURE_API_SCOPE` / `AZURE_IDENTIFIER_URI` | `access_as_user` / `api://<client-id>` | Scope exposed by your Entra app |
 | `MCP_ALLOWED_EMAILS` / `MCP_ALLOWED_DOMAINS` | | Comma-separated allowlist |
-| `MCP_AUTH_TOKEN` | | Access key (32+ chars) |
+| `MCP_AUTH_TOKEN_<NAME>` | | One access key per person (32+ chars); `<NAME>` becomes the identity in the audit log |
+| `MCP_AUTH_TOKEN` | | Access key for automations (identity `service-token`) |
 | `MCP_PUBLIC_URL` | from `RAILWAY_PUBLIC_DOMAIN` | Public https URL, needed for login |
 | `MCP_READ_ONLY` | `false` | Hide write tools |
 | `MCP_ALLOW_UNAUTHENTICATED` | `false` | Local testing only |
@@ -147,7 +155,7 @@ agreement. Both default to `demo`, e-conomic's read-only demo agreement.
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env      # set MCP_AUTH_TOKEN, or MCP_ALLOW_UNAUTHENTICATED=true for local play
+cp .env.example .env      # set MCP_AUTH_TOKEN_<NAME>, or MCP_ALLOW_UNAUTHENTICATED=true for local play
 python server.py
 python scripts/doctor.py
 ```
@@ -173,7 +181,7 @@ Endpoint: `https://<your-domain>/mcp`.
 ```bash
 claude mcp add --transport http --scope user economic https://<your-domain>/mcp
 # then /mcp inside Claude Code to log in; or, with an access key:
-claude mcp add --transport http economic https://<your-domain>/mcp --header "Authorization: Bearer <MCP_AUTH_TOKEN>"
+claude mcp add --transport http economic https://<your-domain>/mcp --header "Authorization: Bearer <your key>"
 ```
 
 **claude.ai / Claude Desktop**: Settings → Connectors → Add custom connector → paste the
@@ -246,7 +254,7 @@ mode, tool annotations, the audit log and the fail-closed startup.
 
 ## Reliability and security
 
-- Mandatory authentication, allowlist enforced at login and per request, optional read-only mode, audit log.
+- Mandatory authentication: per-person access keys or personal login with an allowlist enforced at login and per request; optional read-only mode; audit log with the caller's name.
 - Pooled HTTP client for the server lifespan; transport failures and HTTP `429`, `502`, `503`, `504` retried with bounded backoff.
 - Every non-GET operation carries one e-conomic `Idempotency-Key`, reused across retries.
 - API paths reject absolute URLs, query strings, fragments and relative traversal; product numbers and fiscal years use e-conomic's custom resource encoding.
@@ -266,7 +274,7 @@ mode, tool annotations, the audit log and the fail-closed startup.
 
 ## Troubleshooting
 
-- **Server exits with "refuses to start"**: no auth configured. Set `MCP_AUTH_TOKEN` or the Google/Microsoft variables.
+- **Server exits with "refuses to start"**: no auth configured. Set a personal key (`MCP_AUTH_TOKEN_<NAME>`) or the Google/Microsoft variables.
 - **"Invalid authentication configuration: …"**: the message names the missing or invalid variable.
 - **`access_denied` at login**: the account is not on the allowlist (Google also requires a verified e-mail).
 - **Google `redirect_uri_mismatch`**: the redirect URI must be exactly `https://<domain>/auth/callback`.

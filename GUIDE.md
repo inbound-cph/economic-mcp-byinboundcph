@@ -10,7 +10,7 @@
 >
 > | Din AI klarer | Du gør selv |
 > |---|---|
-> | Tjekker din maskine og installerer det, der mangler | Opretter en gratis e-conomic udvikleraftale og en app (trin 1) |
+> | Tjekker din maskine, installerer det der mangler og hjælper med at oprette Railway-konto | Opretter en gratis e-conomic udvikleraftale og en app (trin 1) |
 > | Deployer til Railway og genererer sikre nøgler (trin 2) | Godkender appen i dit eget regnskab (trin 1) |
 > | Sætter variabler og verificerer, at det virker | Logger ind på Railway (trin 2) |
 > | Forbinder din klient og installerer skills (trin 4 og 5b) | Opretter en OAuth-klient hos Google eller Microsoft (trin 3) |
@@ -55,14 +55,16 @@ Resten af guiden er den manuelle vej og opslagsværk for både dig og agenten.
 
 ## Trin 0: Det skal du have klar
 
-- Et **e-conomic-regnskab** med adgang til API/integrationer. Er du i tvivl om dit
-  abonnement dækker det, så spørg e-conomic support.
-- En **Railway-konto** (gratis at oprette; selve hostingen koster et lille beløb pr.
-  måned, se railway.com/pricing) og Railway CLI: `brew install railway` eller
-  `npm i -g @railway/cli`.
-- **Git** og, hvis du vil køre lokalt, **Python 3.10+**.
-- Til personligt login: en **Google Workspace**- eller **Microsoft 365**-organisation
-  (eller Gmail-konti). Alternativt kan du bruge en adgangsnøgle uden personligt login.
+Du behøver ikke have alt på forhånd. Din AI-assistent spørger, hvad du har, og guider dig
+gennem resten. Her er samme liste til dig:
+
+| Det skal du have | Har du det ikke, så |
+|---|---|
+| **Claude Code** eller **Codex** på din computer | Claude Code: [claude.com/code](https://claude.com/code) (kræver Claude Pro/Max/Team). Codex: [chatgpt.com/codex](https://chatgpt.com/codex) (kræver ChatGPT Plus/Pro/Business). |
+| **Git**, **Python 3.10+** og **Railway CLI** | Assistenten installerer dem. Mac: `xcode-select --install` og `brew install python railway`. Windows: `winget install Git.Git Python.Python.3.12` og `npm i -g @railway/cli`. Linux: `sudo apt install git python3 python3-venv` og `npm i -g @railway/cli`. |
+| **Railway-konto** (hosting) | `railway login` opretter kontoen i browseren, hvis du ikke har en (log ind med GitHub eller e-mail). Deploy kræver Hobby-planen: et lille månedligt beløb, der inkluderer forbrug, se [railway.com/pricing](https://railway.com/pricing). Du vælger planen i Railway-dashboardet første gang. |
+| **e-conomic-regnskab med API-adgang** | Intet regnskab endnu: opret en gratis prøveperiode på [e-conomic.dk](https://www.e-conomic.dk) eller test med `demo`-tokens (kræver intet). Har du et regnskab, er API-adgang med i de fleste pakker; bliver appen afvist med en besked om API/integrationer, så bed e-conomic support om at slå API-adgang til. Kun regnskabets ejer eller en administrator kan godkende appen i trin 1, så hav den person ved tastaturet. |
+| **Konto til personligt login** (kan tilføjes senere) | Bruger I Google Workspace: Google-login med målgruppe *Internal*. Bruger I Microsoft 365: Microsoft-login. Har I kun private Gmail-konti: Google-login med målgruppe *External* i testtilstand, hvor hver bruger tilføjes under *Audience → Test users* (op til 100). Ingen af delene: brug adgangsnøgle alene og del den manuelt; personligt login kan slås til senere. |
 
 ---
 

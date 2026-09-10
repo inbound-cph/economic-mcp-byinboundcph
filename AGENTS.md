@@ -34,7 +34,7 @@ running anything. Danish version:
 >
 > | Jeg klarer | Du gør selv |
 > |---|---|
-> | Tjekker din maskine og installerer det, der mangler | Opretter en gratis e-conomic udvikleraftale og en app (AppSecretToken) |
+> | Tjekker din maskine, installerer det der mangler og hjælper dig med Railway-konto og login-valg | Opretter en gratis e-conomic udvikleraftale og en app (AppSecretToken) |
 > | Deployer serveren til Railway og genererer sikre nøgler | Godkender appen i dit eget regnskab (AgreementGrantToken) |
 > | Sætter alle variabler og verificerer, at det virker | Logger ind på Railway |
 > | Forbinder din Claude/Codex til serveren og installerer skills | Opretter en OAuth-klient hos Google eller Microsoft, hvis I vil have personligt login |
@@ -70,10 +70,36 @@ exactly what to click and wait for them.
 1. **Read `GUIDE.md` completely** before you start. It contains the exact menu paths.
 2. **Clarify the target.** Recommended: deploy to Railway from this clone with the
    Railway CLI. Alternative: run locally on the user's machine only.
-3. **Check prerequisites** and offer install commands when something is missing:
-   `python3 --version` (3.10+), `git --version`, `railway --version`
-   (`brew install railway` or `npm i -g @railway/cli`), `railway whoami` (else `railway login`).
-   For local runs: `python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt`.
+3. **Prerequisites interview.** Do not assume the user has accounts or tools. Ask, in one
+   short checklist, what they already have, then guide them through whatever is missing
+   (GUIDE.md step 0 has the same content for humans):
+   - **Tools on this machine**: run `git --version`, `python3 --version` (3.10+) and
+     `railway --version`. Install what is missing: macOS `xcode-select --install` (git) and
+     `brew install python railway`; Windows `winget install Git.Git Python.Python.3.12` and
+     `npm i -g @railway/cli` (or `scoop install railway`); Linux `sudo apt install git python3
+     python3-venv` and `npm i -g @railway/cli`. For local runs create a venv:
+     `python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt`.
+   - **Railway account**: `railway login` opens the browser and creates an account on the fly
+     if the user has none (GitHub or e-mail sign-up). Explain before they click: deploying
+     needs the Hobby plan, a small monthly amount that includes usage credit (current price on
+     railway.com/pricing). They choose the plan in the Railway dashboard when prompted.
+     Confirm with `railway whoami`.
+   - **e-conomic agreement**: ask whether they have one. No agreement yet → suggest a free
+     e-conomic trial (e-conomic.dk, "prøv gratis") or start with the `demo` tokens, which need
+     nothing. Has an agreement → the tokens come from the free developer agreement (step 4);
+     API access is part of most plans, and if the installation URL or the first API call is
+     refused with a message about API/integrations, the user must ask e-conomic support to
+     enable API access on their plan. Only the agreement owner or an administrator can
+     approve the app, so make sure the right person is at the keyboard for that step.
+   - **Login account for personal login**: ask which the company uses.
+     Google Workspace → Google login with audience *Internal* (whole organisation allowed,
+     narrowed by the allowlist). Microsoft 365 → Microsoft login (tenant-bounded). Only
+     private Gmail accounts → Google login with audience *External* in testing mode, adding
+     each user under *Audience → Test users* (up to 100, no verification needed). Neither →
+     access key only; explain that the key must then be shared manually and rotated if it
+     leaks, and that personal login can be added later.
+   - **Client**: ask whether they will use Claude Code, claude.ai/Claude Desktop, Codex or
+     something else, so step 8 fits.
 4. **e-conomic tokens.** Explain the three browser steps from `GUIDE.md` step 1
    (developer agreement → app → installation URL → grant token). Offer to start with the
    `demo` tokens (read-only demo data) so everything else can be tested first.

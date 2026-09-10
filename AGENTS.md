@@ -113,7 +113,13 @@ exactly what to click and wait for them.
    railway up --detach --service economic-mcp
    railway logs --service economic-mcp
    ```
-   Then verify: `python scripts/doctor.py --public-url https://<domain>`.
+   The domain is printed by `railway domain`; if you missed it, read `RAILWAY_PUBLIC_DOMAIN`
+   from `railway variable list --service economic-mcp --json`. A fresh domain can answer
+   404 for a minute; the doctor script retries. Then verify:
+   `python scripts/doctor.py --public-url https://<domain>`.
+   If the `claude` CLI crashes with a Node.js TypeError, the user's Node is too new for the
+   npm-installed CLI; the Claude desktop app is unaffected, and `nvm use 22` or reinstalling
+   Claude Code fixes the CLI. Configure the MCP server through the app or `.mcp.json` meanwhile.
    The first deploy always uses an access key so the server can start; personal login is
    added afterwards because the identity provider needs the public URL.
 6. **Personal login** (GUIDE.md step 3). Recommend Google login for Google Workspace

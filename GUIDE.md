@@ -135,6 +135,10 @@ railway up --detach --service economic-mcp
 railway logs --service economic-mcp    # vent på "Authentication: access key"
 ```
 
+Første deploy tager typisk et halvt til to minutter. Et nyt domæne kan svare "Application
+not found" det første minut, mens Railways netværk opdaterer; `doctor.py` prøver selv igen.
+Vil du se domænet igen: `railway variable list --service economic-mcp --kv | grep RAILWAY_PUBLIC_DOMAIN`.
+
 Dine rigtige e-conomic-tokens sætter du bagefter uden at de ryger i terminalhistorikken:
 
 ```bash

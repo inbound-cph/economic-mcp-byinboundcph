@@ -14,6 +14,7 @@ import argparse
 import json
 import os
 import sys
+import time
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -150,13 +151,27 @@ def check_deployment(public_url: str, settings) -> None:
     import httpx
 
     public_url = public_url.rstrip("/")
-    try:
-        health = httpx.get(f"{public_url}/health", timeout=20.0)
-    except httpx.HTTPError as exc:
-        report(FAIL, f"Deployment not reachable at {public_url}/health", f"{type(exc).__name__}. Has the deploy finished and a public domain been generated?")
-        return
-    if health.status_code != 200:
-        report(FAIL, f"/health returned HTTP {health.status_code}", health.text[:200])
+    # A fresh Railway domain can answer 404 "Application not found" for a minute or two
+    # while the edge network catches up, so retry before calling it a failure.
+    health = None
+    last_error = ""
+    for attempt in range(6):
+        try:
+            health = httpx.get(f"{public_url}/health", timeout=20.0)
+            if health.status_code == 200:
+                break
+            last_error = f"HTTP {health.status_code}: {health.text[:120]}"
+        except httpx.HTTPError as exc:
+            last_error = type(exc).__name__
+        if attempt < 5:
+            print(f"       ... deployment not ready yet ({last_error}), retrying in 10 s")
+            time.sleep(10)
+    if health is None or health.status_code != 200:
+        report(
+            FAIL,
+            f"Deployment not reachable at {public_url}/health",
+            f"{last_error}. Has the deploy finished (railway logs) and a public domain been generated (railway domain)?",
+        )
         return
     data = health.json()
     report(OK, f"Deployment healthy: auth={data.get('auth')} readOnly={data.get('readOnly')}")

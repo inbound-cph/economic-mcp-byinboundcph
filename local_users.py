@@ -49,6 +49,7 @@ from urllib.parse import urlencode
 
 from mcp.server.auth.provider import (
     AuthorizationCode,
+    RegistrationError,
     AuthorizationParams,
     AuthorizeError,
     RefreshToken,
@@ -296,7 +297,7 @@ class LocalUsersProvider(OAuthProvider):
         for uri in client_info.redirect_uris or []:
             if not validate_redirect_uri(uri, self._allowed_redirects):
                 logger.warning("Rejected client registration with redirect URI %s", uri)
-                raise ValueError(f"redirect_uri {uri} is not allowed on this server")
+                raise RegistrationError(error="invalid_redirect_uri", error_description=f"redirect_uri {uri} is not allowed on this server")
         self._clients[client_info.client_id] = client_info
         self._save_state()
 
